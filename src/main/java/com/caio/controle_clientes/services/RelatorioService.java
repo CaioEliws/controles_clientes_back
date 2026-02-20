@@ -27,31 +27,37 @@ public class RelatorioService {
     }
 
     public HistoricoClienteDTO gerarHistoricoCliente(Cliente cliente) {
-        List< Emprestimo> emprestimos = emprestimoRepositorio.findByCliente(cliente);
+        List<Emprestimo> emprestimos = emprestimoRepositorio.findByCliente(cliente);
 
         BigDecimal totalEmprestado = BigDecimal.ZERO;
         BigDecimal totalPago = BigDecimal.ZERO;
         BigDecimal totalAberto = BigDecimal.ZERO;
 
         int parcelasAtrasadas = 0;
+        int parcelasPagas = 0;
+        int parcelasAVencer = 0;
+        int totalParcelas = 0;
 
         for (Emprestimo e : emprestimos) {
             totalEmprestado = totalEmprestado.add(e.getValorEmprestado());
 
             List<Parcelas> parcelas = parcelaRepositorio.findByEmprestimo(e);
 
+            totalParcelas += parcelas.size();
+
             for (Parcelas p : parcelas) {
                 if (p.getStatus() == ParcelaStatus.PAGO) {
                     totalPago = totalPago.add(p.getValorParcela());
+                    parcelasPagas++;
                 }
 
-                if (p.getStatus() == ParcelaStatus.PENDENTE ||
-                        p.getStatus() == ParcelaStatus.ATRASADO
-                ) {
+                if (p.getStatus() == ParcelaStatus.PENDENTE) {
                     totalAberto = totalAberto.add(p.getValorParcela());
+                    parcelasAVencer++;
                 }
 
                 if (p.getStatus() == ParcelaStatus.ATRASADO) {
+                    totalAberto = totalAberto.add(p.getValorParcela());
                     parcelasAtrasadas++;
                 }
             }
@@ -62,7 +68,10 @@ public class RelatorioService {
                 totalPago,
                 totalAberto,
                 parcelasAtrasadas,
-                emprestimos.size()
+                emprestimos.size(),
+                totalParcelas,
+                parcelasPagas,
+                parcelasAVencer
         );
     }
 

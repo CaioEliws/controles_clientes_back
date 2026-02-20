@@ -7,6 +7,9 @@ public record HistoricoClienteDTO(
         BigDecimal totalPago,
         BigDecimal totalAberto,
         int parcelasAtrasadas,
-        int totalEmprestimos
+        int totalEmprestimos,
+        int totalParcelas,
+        int parcelasPagas,
+        int parcelasAVencer
 ) {
 }
