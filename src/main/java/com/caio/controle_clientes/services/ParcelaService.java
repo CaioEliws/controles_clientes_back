@@ -1,5 +1,6 @@
 package com.caio.controle_clientes.services;
 
+import com.caio.controle_clientes.dto.ParcelaResponseDTO;
 import com.caio.controle_clientes.exceptions.ParcelaPagaException;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.EmprestimoStatus;
@@ -126,4 +127,15 @@ public class ParcelaService {
         emprestimoRepositorio.save(emprestimo);
     }
 
+    public ParcelaResponseDTO toDTO(Parcelas parcela) {
+        return new ParcelaResponseDTO(
+                parcela.getEmprestimo().getId(),
+                parcela.getEmprestimo().getCliente().getNome(),
+                parcela.getNumeroParcela(),
+                parcela.getValorParcela(),
+                parcela.getValorPago(),
+                parcela.getStatus(),
+                parcela.getDataVencimento()
+        );
+    }
 }

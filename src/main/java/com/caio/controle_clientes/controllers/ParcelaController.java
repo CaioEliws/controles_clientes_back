@@ -2,6 +2,7 @@ package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.dto.PagarParcelaDTO;
 import com.caio.controle_clientes.dto.PagarParcelaParcialDTO;
+import com.caio.controle_clientes.dto.ParcelaResponseDTO;
 import com.caio.controle_clientes.models.ParcelaStatus;
 import com.caio.controle_clientes.models.Parcelas;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
@@ -52,32 +53,42 @@ public class ParcelaController {
     }
 
     @GetMapping
-    public List<Parcelas> listarPorStatus(
+    public List<ParcelaResponseDTO> listarPorStatus(
             @RequestParam ParcelaStatus status
     ) {
         parcelaService.atualizarParcelasAtrasadas();
+
         return parcelaRepositorio
-                .findParcelasComEmprestimoEClientePorStatus(status);
+                .findParcelasComEmprestimoEClientePorStatus(status)
+                .stream()
+                .map(parcelaService::toDTO)
+                .toList();
     }
 
     @GetMapping("/vencendo-hoje")
-    public List<Parcelas> vencendoHoje() {
+    public List<ParcelaResponseDTO> vencendoHoje() {
         parcelaService.atualizarParcelasAtrasadas();
+
         return parcelaRepositorio.findParcelasVencendoHoje(
-                ParcelaStatus.PENDENTE,
-                LocalDate.now()
-        );
+                        ParcelaStatus.PENDENTE,
+                        LocalDate.now()
+                ).stream()
+                .map(parcelaService::toDTO)
+                .toList();
     }
 
     @GetMapping("/mes-atual")
-    public List<Parcelas> parcelasDoMes() {
+    public List<ParcelaResponseDTO> parcelasDoMes() {
         parcelaService.atualizarParcelasAtrasadas();
 
         LocalDate inicio = LocalDate.now().withDayOfMonth(1);
         LocalDate fim = LocalDate.now()
                 .withDayOfMonth(LocalDate.now().lengthOfMonth());
 
-        return parcelaRepositorio.findParcelasDoMes(inicio, fim);
+        return parcelaRepositorio.findParcelasDoMes(inicio, fim)
+                .stream()
+                .map(parcelaService::toDTO)
+                .toList();
     }
 }
 
