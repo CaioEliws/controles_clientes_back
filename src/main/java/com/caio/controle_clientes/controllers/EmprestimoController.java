@@ -8,8 +8,10 @@ import com.caio.controle_clientes.services.ClienteService;
 import com.caio.controle_clientes.services.EmprestimoService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController

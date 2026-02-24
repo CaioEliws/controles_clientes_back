@@ -21,7 +21,7 @@ public class ClienteService {
 
     public Cliente buscarPorNome(String nome) {
         return clienteRepositorio
-                .findByNomeContainingIgnoreCase(nome)
+                .findByNomeIgnoreCase(nome)
                 .orElseThrow(() -> new RuntimeException("Cliente não encontrado!"));
     }
 
@@ -31,7 +31,7 @@ public class ClienteService {
                              String enderecoBairro,
                              Integer enderecoNumero) {
         boolean  existe = clienteRepositorio
-                .findByNomeContainingIgnoreCase(nome)
+                .findByNomeIgnoreCase(nome)
                 .isPresent();
 
         if (existe) {

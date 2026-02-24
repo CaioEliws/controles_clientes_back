@@ -76,10 +76,6 @@ public class EmprestimoService {
         return emprestimo;
     }
 
-    // ==========================
-    // PAGAMENTO INTEGRAL
-    // ==========================
-
     @Transactional
     public void pagarParcela(Long idEmprestimo, Integer numeroParcela) {
 
@@ -194,9 +190,6 @@ public class EmprestimoService {
         return emprestimo.getParcelas();
     }
 
-    // ==========================
-    // DELETAR EMPRESTIMO
-    // ==========================
     @Transactional
     public void deletarEmprestimo(Long idCliente, Long idEmprestimo) {
         Emprestimo emprestimo = emprestimoRepositorio.findById(idEmprestimo)

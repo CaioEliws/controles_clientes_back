@@ -4,5 +4,5 @@ public enum ParcelaStatus {
     PAGO,
     PARCIAL,
     PENDENTE,
-    ATRASADO
+    ATRASADO;
 }

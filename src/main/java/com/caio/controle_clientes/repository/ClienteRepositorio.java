@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface ClienteRepositorio extends JpaRepository<Cliente, Long> {
-    Optional<Cliente> findByNomeContainingIgnoreCase(String nome);
+    Optional<Cliente> findByNomeIgnoreCase(String nome);
 
     @Query("""
         SELECT c FROM Cliente c
