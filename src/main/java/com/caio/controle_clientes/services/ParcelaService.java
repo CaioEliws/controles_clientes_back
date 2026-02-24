@@ -138,4 +138,40 @@ public class ParcelaService {
                 parcela.getDataVencimento()
         );
     }
+
+    @Transactional
+    public void alterarDataVencimento(
+            Long idEmprestimo,
+            Integer numeroParcela,
+            LocalDate novaData
+    ) {
+
+        Parcelas parcela = (Parcelas) parcelaRepositorio
+                .findByEmprestimoIdAndNumeroParcela(idEmprestimo, numeroParcela)
+                .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
+
+        Emprestimo emprestimo = parcela.getEmprestimo();
+
+        if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
+            throw new RuntimeException("Empréstimo já está quitado");
+        }
+
+        if (parcela.getStatus() == ParcelaStatus.PAGO) {
+            throw new RuntimeException("Não é possível alterar data de parcela paga");
+        }
+
+        if (novaData.isBefore(LocalDate.now())) {
+            throw new RuntimeException("Nova data não pode ser anterior a hoje");
+        }
+
+        parcela.setDataVencimento(novaData);
+
+        if (parcela.getStatus() == ParcelaStatus.ATRASADO &&
+                novaData.isAfter(LocalDate.now())) {
+
+            parcela.setStatus(ParcelaStatus.PENDENTE);
+        }
+
+        parcelaRepositorio.save(parcela);
+    }
 }

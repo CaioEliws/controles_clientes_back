@@ -1,5 +1,6 @@
 package com.caio.controle_clientes.controllers;
 
+import com.caio.controle_clientes.dto.AlterarDataParcelaDTO;
 import com.caio.controle_clientes.dto.PagarParcelaDTO;
 import com.caio.controle_clientes.dto.PagarParcelaParcialDTO;
 import com.caio.controle_clientes.dto.ParcelaResponseDTO;
@@ -89,6 +90,19 @@ public class ParcelaController {
                 .stream()
                 .map(parcelaService::toDTO)
                 .toList();
+    }
+
+    @PatchMapping("/alterar-data")
+    public ResponseEntity<Void> alterarDataParcela(
+            @RequestBody AlterarDataParcelaDTO dto
+    ) {
+        parcelaService.alterarDataVencimento(
+                dto.idEmprestimo(),
+                dto.numeroParcela(),
+                dto.novaData()
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }
 
