@@ -1,6 +1,7 @@
 package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.dto.EmprestimoCreateDTO;
+import com.caio.controle_clientes.dto.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.Parcelas;
@@ -67,5 +68,13 @@ public class EmprestimoController {
     ) {
         emprestimoService.deletarEmprestimo(idCliente, idEmprestimo);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/detalhes")
+    public List<EmprestimoDetalhadoDTO> listarDetalhado(
+            @PathVariable Long idCliente
+    ) {
+        Cliente cliente = clienteService.getClienteById(idCliente);
+        return emprestimoService.listarDetalhado(cliente);
     }
 }

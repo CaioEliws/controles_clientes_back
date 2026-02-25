@@ -1,5 +1,6 @@
 package com.caio.controle_clientes.services;
 
+import com.caio.controle_clientes.dto.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.exceptions.ParcelaPagaException;
 import com.caio.controle_clientes.models.*;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
@@ -211,5 +212,44 @@ public class EmprestimoService {
 
         parcelaRepositorio.deleteAll(emprestimo.getParcelas());
         emprestimoRepositorio.delete(emprestimo);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmprestimoDetalhadoDTO> listarDetalhado(Cliente cliente) {
+        List<Emprestimo> emprestimos = emprestimoRepositorio.findAllByCliente(cliente);
+
+        return emprestimos.stream().map(e -> {
+
+            long pagas = e.getParcelas().stream()
+                    .filter(p -> p.getStatus().isPago())
+                    .count();
+
+            long pendentes = e.getParcelas().stream()
+                    .filter(p -> p.getStatus().isPendente())
+                    .count();
+
+            long atrasadas = e.getParcelas().stream()
+                    .filter(p -> p.getStatus().isAtrasada())
+                    .count();
+
+            return new EmprestimoDetalhadoDTO(
+                    e.getId(),
+                    e.getCliente().getNome(),
+                    e.getDataDoEmprestimo(),
+                    e.getFormaPagamento().name(),
+                    e.getValorEmprestado(),
+                    e.getValorTotalEmprestimo(),
+                    e.getValorParcela(),
+                    e.getValorRecebido(),
+                    e.getValorAReceber(),
+                    e.getInicioPagamento(),
+                    e.getFinalPagamento(),
+                    e.getEmprestimoStatus(),
+                    e.getQuantidadeParcelas(),
+                    pagas,
+                    pendentes,
+                    atrasadas
+            );
+        }).toList();
     }
 }
