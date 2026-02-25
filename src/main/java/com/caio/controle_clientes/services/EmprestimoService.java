@@ -18,17 +18,13 @@ public class EmprestimoService {
     private final EmprestimoRepositorio emprestimoRepositorio;
     private final ParcelaRepositorio parcelaRepositorio;
     private final CalculadoraEmprestimoService calculadora;
-    private final ParcelaService parcelaService;
 
     public EmprestimoService(EmprestimoRepositorio emprestimoRepositorio,
                              ParcelaRepositorio parcelaRepositorio,
-                             CalculadoraEmprestimoService calculadora,
-                             ParcelaService parcelaService) {
-
+                             CalculadoraEmprestimoService calculadora) {
         this.emprestimoRepositorio = emprestimoRepositorio;
         this.parcelaRepositorio = parcelaRepositorio;
         this.calculadora = calculadora;
-        this.parcelaService = parcelaService;
     }
 
     @Transactional
@@ -49,7 +45,6 @@ public class EmprestimoService {
         emprestimo.setDataDoEmprestimo(LocalDate.now());
         emprestimo.setInicioPagamento(LocalDate.now().plusMonths(1));
         emprestimo.setFinalPagamento(LocalDate.now().plusMonths(quantidadeParcelas));
-
         emprestimo.setEmprestimoStatus(EmprestimoStatus.EM_ABERTO);
 
         BigDecimal valorParcela =
@@ -61,7 +56,6 @@ public class EmprestimoService {
 
         emprestimo.setValorParcela(valorParcela);
         emprestimo.setValorTotalEmprestimo(valorTotal);
-
         emprestimo.setValorRecebido(BigDecimal.ZERO);
         emprestimo.setValorAReceber(valorTotal);
 
@@ -69,8 +63,12 @@ public class EmprestimoService {
 
         List<Parcelas> parcelas = calculadora.gerarParcelas(emprestimo);
 
-        emprestimo.setParcelas(parcelas);
+        parcelas.forEach(p -> {
+            p.setValorPago(BigDecimal.ZERO);
+            p.setStatus(ParcelaStatus.PENDENTE);
+        });
 
+        emprestimo.setParcelas(parcelas);
         parcelaRepositorio.saveAll(parcelas);
 
         return emprestimo;
@@ -81,16 +79,12 @@ public class EmprestimoService {
 
         Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
 
-        pagarParcelaParcial(
-                idEmprestimo,
-                numeroParcela,
-                parcela.getValorParcela().subtract(parcela.getValorPago())
-        );
-    }
+        BigDecimal valorPagoAtual = safe(parcela.getValorPago());
+        BigDecimal saldoRestante =
+                safe(parcela.getValorParcela()).subtract(valorPagoAtual);
 
-    // ==========================
-    // PAGAMENTO PARCIAL
-    // ==========================
+        pagarParcelaParcial(idEmprestimo, numeroParcela, saldoRestante);
+    }
 
     @Transactional
     public void pagarParcelaParcial(Long idEmprestimo,
@@ -98,6 +92,11 @@ public class EmprestimoService {
                                     BigDecimal valorPago) {
 
         Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
+        Emprestimo emprestimo = parcela.getEmprestimo();
+
+        if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
+            throw new RuntimeException("Empréstimo já quitado");
+        }
 
         if (parcela.getStatus() == ParcelaStatus.PAGO) {
             throw new ParcelaPagaException();
@@ -107,53 +106,43 @@ public class EmprestimoService {
             throw new RuntimeException("Valor deve ser maior que zero");
         }
 
+        BigDecimal valorPagoAtual = safe(parcela.getValorPago());
         BigDecimal saldoAtual =
-                parcela.getValorParcela().subtract(parcela.getValorPago());
+                safe(parcela.getValorParcela()).subtract(valorPagoAtual);
 
         if (valorPago.compareTo(saldoAtual) > 0) {
-            throw new RuntimeException("Valor maior que o saldo da parcela");
+            throw new RuntimeException("Valor maior que saldo da parcela");
         }
 
-        // Atualiza parcela
-        parcela.setValorPago(
-                parcela.getValorPago().add(valorPago)
-        );
+        parcela.setValorPago(valorPagoAtual.add(valorPago));
 
         if (parcela.getValorPago()
                 .compareTo(parcela.getValorParcela()) == 0) {
-
             parcela.setStatus(ParcelaStatus.PAGO);
-
         } else {
             parcela.setStatus(ParcelaStatus.PARCIAL);
         }
 
         parcelaRepositorio.save(parcela);
 
-        // Atualiza empréstimo
-        atualizarFinanceiroEmprestimo(parcela.getEmprestimo(), valorPago);
+        atualizarFinanceiroEmprestimo(emprestimo, valorPago);
     }
-
-    // ==========================
-    // ATUALIZA SALDO DO EMPRÉSTIMO
-    // ==========================
 
     private void atualizarFinanceiroEmprestimo(Emprestimo emprestimo,
                                                BigDecimal valorPago) {
 
-        emprestimo.setValorRecebido(
-                emprestimo.getValorRecebido().add(valorPago)
-        );
+        BigDecimal valorTotal = safe(emprestimo.getValorTotalEmprestimo());
+        BigDecimal recebidoAtual = safe(emprestimo.getValorRecebido());
 
-        emprestimo.setValorAReceber(
-                emprestimo.getValorTotalEmprestimo()
-                        .subtract(emprestimo.getValorRecebido())
-        );
+        BigDecimal novoRecebido = recebidoAtual.add(valorPago);
 
-        // Fecha empréstimo se tudo pago
-        boolean todasPagas = emprestimo.getParcelas()
-                .stream()
-                .allMatch(p -> p.getStatus() == ParcelaStatus.PAGO);
+        emprestimo.setValorRecebido(novoRecebido);
+        emprestimo.setValorAReceber(valorTotal.subtract(novoRecebido));
+
+        boolean todasPagas = emprestimo.getParcelas() != null &&
+                emprestimo.getParcelas()
+                        .stream()
+                        .allMatch(p -> p.getStatus() == ParcelaStatus.PAGO);
 
         if (todasPagas) {
             emprestimo.setEmprestimoStatus(EmprestimoStatus.QUITADO);
@@ -162,9 +151,9 @@ public class EmprestimoService {
         emprestimoRepositorio.save(emprestimo);
     }
 
-    // ==========================
-    // BUSCA PARCELA (REUTILIZÁVEL)
-    // ==========================
+    private BigDecimal safe(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
 
     private Parcelas buscarParcela(Long idEmprestimo, Integer numeroParcela) {
         return (Parcelas) parcelaRepositorio
@@ -172,26 +161,35 @@ public class EmprestimoService {
                 .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
     }
 
-    // ==========================
-    // LISTAGENS
-    // ==========================
-
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Emprestimo> listarEmprestimosCliente(Cliente cliente) {
         return emprestimoRepositorio.findAllByCliente(cliente);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Parcelas> listarParcelas(Long idEmprestimo) {
+        Emprestimo emprestimo = emprestimoRepositorio.buscarComParcelas(idEmprestimo)
+                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+        return emprestimo.getParcelas();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Parcelas> listarParcelasDoCliente(Long idCliente,
+                                                  Long idEmprestimo) {
 
         Emprestimo emprestimo = emprestimoRepositorio.buscarComParcelas(idEmprestimo)
-                .orElseThrow(() -> new RuntimeException("Emprestimo não encontrado"));
+                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+
+        if (!emprestimo.getCliente().getId().equals(idCliente)) {
+            throw new RuntimeException("Este empréstimo não pertence ao cliente informado");
+        }
 
         return emprestimo.getParcelas();
     }
 
     @Transactional
     public void deletarEmprestimo(Long idCliente, Long idEmprestimo) {
+
         Emprestimo emprestimo = emprestimoRepositorio.findById(idEmprestimo)
                 .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
 
@@ -199,17 +197,19 @@ public class EmprestimoService {
             throw new RuntimeException("Este empréstimo não pertence ao cliente informado");
         }
 
-        boolean existeParcelaPaga = emprestimo.getParcelas()
-                .stream()
-                .anyMatch(p -> p.getStatus() == ParcelaStatus.PAGO
-                        || p.getStatus() == ParcelaStatus.PARCIAL);
+        boolean existeParcelaPaga = emprestimo.getParcelas() != null &&
+                emprestimo.getParcelas()
+                        .stream()
+                        .anyMatch(p ->
+                                p.getStatus() == ParcelaStatus.PAGO ||
+                                        p.getStatus() == ParcelaStatus.PARCIAL
+                        );
 
         if (existeParcelaPaga) {
             throw new RuntimeException("Não é possível excluir empréstimo com parcelas pagas");
         }
 
         parcelaRepositorio.deleteAll(emprestimo.getParcelas());
-
         emprestimoRepositorio.delete(emprestimo);
     }
 }

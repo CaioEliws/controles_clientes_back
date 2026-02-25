@@ -54,9 +54,10 @@ public class EmprestimoController {
 
     @GetMapping("/{idEmprestimo}/parcelas")
     public List<Parcelas> listarParcelas(
+            @PathVariable Long idCliente,
             @PathVariable Long idEmprestimo
     ) {
-        return emprestimoService.listarParcelas(idEmprestimo);
+        return emprestimoService.listarParcelasDoCliente(idCliente, idEmprestimo);
     }
 
     @DeleteMapping("/{idEmprestimo}")
