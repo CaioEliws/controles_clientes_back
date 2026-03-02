@@ -72,4 +72,22 @@ public class EmprestimoController {
         Cliente cliente = clienteService.getClienteById(idCliente);
         return emprestimoService.listarDetalhado(cliente);
     }
+
+    @PostMapping("/{idEmprestimo}/refinanciar")
+    public ResponseEntity<Void> refinanciar(
+            @PathVariable Long idCliente,
+            @PathVariable Long idEmprestimo
+    ) {
+        emprestimoService.refinanciarEmprestimo(idCliente, idEmprestimo);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{idEmprestimo}/quitar")
+    public ResponseEntity<Void> quitar(
+            @PathVariable Long idCliente,
+            @PathVariable Long idEmprestimo
+    ) {
+        emprestimoService.quitarEmprestimo(idCliente, idEmprestimo);
+        return ResponseEntity.ok().build();
+    }
 }

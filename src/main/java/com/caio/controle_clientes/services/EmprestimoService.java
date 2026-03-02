@@ -15,7 +15,6 @@ import java.util.List;
 
 @Service
 public class EmprestimoService {
-
     private final EmprestimoRepositorio emprestimoRepositorio;
     private final ParcelaRepositorio parcelaRepositorio;
     private final CalculadoraEmprestimoService calculadora;
@@ -253,5 +252,97 @@ public class EmprestimoService {
                     atrasadas
             );
         }).toList();
+    }
+
+    @Transactional
+    public void refinanciarEmprestimo(Long idCliente, Long idEmprestimo) {
+        Emprestimo emprestimo = emprestimoRepositorio.buscarComParcelas(idEmprestimo)
+                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+
+        if (!emprestimo.getCliente().getId().equals(idCliente)) {
+            throw new RuntimeException("Este empréstimo não pertence ao cliente informado");
+        }
+
+        if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
+            throw new RuntimeException("Empréstimo já está quitado");
+        }
+
+        if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.REFINANCIADO) {
+            throw new RuntimeException("Empréstimo já foi refinanciado");
+        }
+
+        LocalDate hoje = LocalDate.now();
+
+        for (Parcelas p : emprestimo.getParcelas()) {
+            if (p.getStatus() == ParcelaStatus.PAGO) continue;
+
+            BigDecimal valorParcela = safe(p.getValorParcela());
+            BigDecimal valorPagoAtual = safe(p.getValorPago());
+
+            BigDecimal falta = valorParcela.subtract(valorPagoAtual);
+            if (falta.compareTo(BigDecimal.ZERO) < 0) falta = BigDecimal.ZERO;
+
+            p.setValorPago(valorPagoAtual.add(falta));
+            p.setStatus(ParcelaStatus.PAGO);
+            p.setDataPagamento(hoje);
+        }
+
+        parcelaRepositorio.saveAll(emprestimo.getParcelas());
+
+        BigDecimal recebido = emprestimo.getParcelas().stream()
+                .map(x -> safe(x.getValorPago()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal total = safe(emprestimo.getValorTotalEmprestimo());
+
+        emprestimo.setValorRecebido(recebido);
+        emprestimo.setValorAReceber(total.subtract(recebido));
+
+        emprestimo.setEmprestimoStatus(EmprestimoStatus.REFINANCIADO);
+
+        emprestimoRepositorio.save(emprestimo);
+    }
+
+    @Transactional
+    public void quitarEmprestimo(Long idCliente, Long idEmprestimo) {
+        Emprestimo emprestimo = emprestimoRepositorio.buscarComParcelas(idEmprestimo)
+                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+
+        if (!emprestimo.getCliente().getId().equals(idCliente)) {
+            throw new RuntimeException("Este empréstimo não pertence ao cliente informado");
+        }
+
+        if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
+            throw new RuntimeException("Empréstimo já está quitado");
+        }
+
+        LocalDate hoje = LocalDate.now();
+
+        for (Parcelas p : emprestimo.getParcelas()) {
+            BigDecimal valorParcela = safe(p.getValorParcela());
+            BigDecimal valorPagoAtual = safe(p.getValorPago());
+
+            BigDecimal falta = valorParcela.subtract(valorPagoAtual);
+            if (falta.compareTo(BigDecimal.ZERO) < 0) falta = BigDecimal.ZERO;
+
+            p.setValorPago(valorPagoAtual.add(falta));
+            p.setStatus(ParcelaStatus.PAGO);
+            p.setDataPagamento(hoje);
+        }
+
+        parcelaRepositorio.saveAll(emprestimo.getParcelas());
+
+        BigDecimal recebido = emprestimo.getParcelas().stream()
+                .map(x -> safe(x.getValorPago()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal total = safe(emprestimo.getValorTotalEmprestimo());
+
+        emprestimo.setValorRecebido(recebido);
+        emprestimo.setValorAReceber(total.subtract(recebido));
+
+        emprestimo.setEmprestimoStatus(EmprestimoStatus.QUITADO);
+
+        emprestimoRepositorio.save(emprestimo);
     }
 }
