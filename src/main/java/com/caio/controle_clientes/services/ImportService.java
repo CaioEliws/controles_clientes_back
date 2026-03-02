@@ -4,13 +4,14 @@ import com.caio.controle_clientes.models.*;
 import com.caio.controle_clientes.repository.ClienteRepositorio;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
-
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.text.Normalizer;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -25,8 +26,28 @@ public class ImportService {
     private final EmprestimoRepositorio emprestimoRepository;
     private final ParcelaRepositorio parcelaRepository;
 
-    public void importarPlanilha(InputStream file) throws Exception {
+    private static final int COL_DATA_EMPRESTIMO = 0;
+    private static final int COL_CLIENTE = 1;
+    private static final int COL_INDICACAO = 2;
+    private static final int COL_FORMA_PGTO = 3;
+    private static final int COL_PAGAMENTO_FREQUENCIA = 4;
 
+    private static final int COL_VALOR_EMPRESTIMO = 5;
+    private static final int COL_QTDE_PARCELAS = 6;
+    private static final int COL_QTDE_PARCELAS_PAGAS = 7;
+
+    private static final int COL_VALOR_A_RECEBER = 9;
+    private static final int COL_VALOR_RECEBIDO = 10;
+    private static final int COL_VALOR_TOTAL_EMPRESTIMOS = 12;
+
+    private static final int COL_VALOR_PARCELA = 13;
+    private static final int COL_TX_JUROS = 14;
+
+    private static final int COL_INICIO_PGTO = 15;
+    private static final int COL_FINAL_PGTO = 16;
+    private static final int COL_SITUACAO = 17;
+
+    public void importarPlanilha(InputStream file) throws Exception {
         Workbook workbook = WorkbookFactory.create(file);
         Sheet sheet = workbook.getSheetAt(0);
 
@@ -48,25 +69,29 @@ public class ImportService {
             totalLinhas++;
 
             try {
-                LocalDate dataEmprestimo = getLocalDate(row.getCell(0));
-                String nomeClienteOriginal = getString(row.getCell(1));
-                String nomeIndicador = getString(row.getCell(2));
-                String formaStr = getString(row.getCell(3));
+                LocalDate dataEmprestimo = getLocalDate(row.getCell(COL_DATA_EMPRESTIMO));
+                String nomeClienteOriginal = getString(row.getCell(COL_CLIENTE));
+                String nomeIndicador = getString(row.getCell(COL_INDICACAO));
+                String formaStr = getString(row.getCell(COL_FORMA_PGTO));
 
-                BigDecimal valorEmprestado = getMoneyValue(row.getCell(4));
-                Integer totalParcelas = (int) row.getCell(5).getNumericCellValue();
-                Integer parcelasPagas = (int) row.getCell(6).getNumericCellValue();
+                String frequenciaStr = getString(row.getCell(COL_PAGAMENTO_FREQUENCIA));
+                FrequenciaPagamento frequenciaPagamento = converterFrequencia(frequenciaStr);
 
-                BigDecimal valorAReceber = getMoneyValue(row.getCell(8));
-                BigDecimal valorRecebido = getMoneyValue(row.getCell(9));
-                BigDecimal valorTotalEmprestimos = getMoneyValue(row.getCell(11));
+                BigDecimal valorEmprestado = getMoneyValue(row.getCell(COL_VALOR_EMPRESTIMO));
+                Integer totalParcelas = (int) row.getCell(COL_QTDE_PARCELAS).getNumericCellValue();
+                Integer parcelasPagas = (int) row.getCell(COL_QTDE_PARCELAS_PAGAS).getNumericCellValue();
 
-                BigDecimal valorParcela = getMoneyValue(row.getCell(12));
-                BigDecimal taxaJurosPercentual = getPercentValue(row.getCell(13));
+                BigDecimal valorAReceber = getMoneyValue(row.getCell(COL_VALOR_A_RECEBER));
+                BigDecimal valorRecebido = getMoneyValue(row.getCell(COL_VALOR_RECEBIDO));
+                BigDecimal valorTotalEmprestimos = getMoneyValue(row.getCell(COL_VALOR_TOTAL_EMPRESTIMOS));
 
-                LocalDate inicioPgto = getLocalDate(row.getCell(14));
-                LocalDate fimPgto = getLocalDate(row.getCell(15));
-                EmprestimoStatus situacao = converterStatus(getString(row.getCell(16)));
+                BigDecimal valorParcela = getMoneyValue(row.getCell(COL_VALOR_PARCELA));
+
+                BigDecimal taxaJurosPercentual = getPercentValue(row.getCell(COL_TX_JUROS));
+
+                LocalDate inicioPgto = getLocalDate(row.getCell(COL_INICIO_PGTO));
+                LocalDate fimPgto = getLocalDate(row.getCell(COL_FINAL_PGTO));
+                EmprestimoStatus situacao = converterStatus(getString(row.getCell(COL_SITUACAO)));
 
                 String motivo = null;
 
@@ -105,6 +130,10 @@ public class ImportService {
                 emp.setCliente(cliente);
                 emp.setDataDoEmprestimo(dataEmprestimo);
                 emp.setFormaPagamento(formaPagamento);
+
+                // ✅ NOVO
+                emp.setFrequenciaPagamento(frequenciaPagamento);
+
                 emp.setValorEmprestado(valorEmprestado);
                 emp.setQuantidadeParcelas(totalParcelas);
 
@@ -114,8 +143,10 @@ public class ImportService {
 
                 emp.setTaxaDeJuros(taxaJurosPercentual);
                 emp.setValorParcela(valorParcela);
+
                 emp.setInicioPagamento(inicioPgto);
                 emp.setFinalPagamento(fimPgto);
+
                 emp.setEmprestimoStatus(situacao);
 
                 emp = emprestimoRepository.save(emp);
@@ -187,7 +218,6 @@ public class ImportService {
             }
 
             return BigDecimal.valueOf(Math.round(value));
-
         } catch (Exception e) {
             return BigDecimal.ZERO;
         }
@@ -226,7 +256,6 @@ public class ImportService {
 
                 return LocalDate.parse(value);
             }
-
         } catch (Exception e) {
             return null;
         }
@@ -237,14 +266,21 @@ public class ImportService {
     private List<Parcelas> gerarParcelas(Emprestimo emp, Integer pagas) {
         List<Parcelas> list = new ArrayList<>();
 
+        LocalDate vencimento = emp.getInicioPagamento();
+        FrequenciaPagamento freq = emp.getFrequenciaPagamento() == null
+                ? FrequenciaPagamento.MENSAL
+                : emp.getFrequenciaPagamento();
+
+        if (freq == FrequenciaPagamento.DIARIO) {
+            vencimento = ajustarSeDomingo(vencimento);
+        }
+
         for (int i = 1; i <= emp.getQuantidadeParcelas(); i++) {
 
             Parcelas p = new Parcelas();
             p.setNumeroParcela(i);
             p.setEmprestimo(emp);
             p.setValorParcela(emp.getValorParcela());
-
-            LocalDate vencimento = emp.getInicioPagamento().plusMonths(i - 1);
             p.setDataVencimento(vencimento);
 
             if (i <= pagas) {
@@ -253,12 +289,42 @@ public class ImportService {
                 p.setDataPagamento(vencimento);
             } else {
                 p.setStatus(ParcelaStatus.PENDENTE);
+                p.setValorPago(BigDecimal.ZERO);
             }
 
             list.add(p);
+
+            vencimento = proximoVencimento(vencimento, freq);
         }
 
         return list;
+    }
+
+    private LocalDate proximoVencimento(LocalDate atual, FrequenciaPagamento freq) {
+        return switch (freq) {
+            case MENSAL -> atual.plusMonths(1);
+            case SEMANAL -> atual.plusWeeks(1);
+            case DIARIO -> ajustarSeDomingo(atual.plusDays(1));
+        };
+    }
+
+    private LocalDate ajustarSeDomingo(LocalDate data) {
+        return data.getDayOfWeek() == DayOfWeek.SUNDAY ? data.plusDays(1) : data;
+    }
+
+    private FrequenciaPagamento converterFrequencia(String raw) {
+        if (raw == null || raw.isBlank()) return FrequenciaPagamento.MENSAL;
+
+        String normalized = Normalizer.normalize(raw, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .trim()
+                .toUpperCase();
+
+        if (normalized.startsWith("DIA")) return FrequenciaPagamento.DIARIO;
+        if (normalized.startsWith("SEM")) return FrequenciaPagamento.SEMANAL;
+        if (normalized.startsWith("MEN") || normalized.startsWith("MES")) return FrequenciaPagamento.MENSAL;
+
+        return FrequenciaPagamento.MENSAL;
     }
 
     private EmprestimoStatus converterStatus(String s) {

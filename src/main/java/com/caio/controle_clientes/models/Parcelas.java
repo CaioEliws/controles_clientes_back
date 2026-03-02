@@ -1,36 +1,56 @@
 package com.caio.controle_clientes.models;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+@Getter
 @Entity
-@Table(name = "parcelas")
+@Table(
+        name = "parcelas",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_parcela_emprestimo_numero",
+                columnNames = {"emprestimo_id", "numero_parcela"}
+        )
+)
 public class Parcelas {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter
+    @Column(name = "numero_parcela", nullable = false)
     private Integer numeroParcela;
 
+    @Setter
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal valorParcela;
 
+    @Setter
+    @Column(nullable = false)
     private LocalDate dataVencimento;
 
+    @Setter
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ParcelaStatus status = ParcelaStatus.PENDENTE;
 
+    @Setter
     private LocalDate dataPagamento;
 
+    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "emprestimo_id")
+    @JoinColumn(name = "emprestimo_id", nullable = false)
     private Emprestimo emprestimo;
 
-    @Column(nullable = false)
+    @Setter
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal valorPago = BigDecimal.ZERO;
 
-    public  Parcelas() {}
+    public Parcelas() {}
 
     public Parcelas(Integer numeroParcela,
                     BigDecimal valorParcela,
@@ -45,66 +65,6 @@ public class Parcelas {
         this.status = status;
         this.dataPagamento = dataPagamento;
         this.emprestimo = emprestimo;
-        this.valorPago = valorPago;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Integer getNumeroParcela() {
-        return numeroParcela;
-    }
-
-    public void setNumeroParcela(Integer numeroParcela) {
-        this.numeroParcela = numeroParcela;
-    }
-
-    public BigDecimal getValorParcela() {
-        return valorParcela;
-    }
-
-    public void setValorParcela(BigDecimal valorParcela) {
-        this.valorParcela = valorParcela;
-    }
-
-    public LocalDate getDataVencimento() {
-        return dataVencimento;
-    }
-
-    public void setDataVencimento(LocalDate dataVencimento) {
-        this.dataVencimento = dataVencimento;
-    }
-
-    public ParcelaStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(ParcelaStatus status) {
-        this.status = status;
-    }
-
-    public LocalDate getDataPagamento() {
-        return dataPagamento;
-    }
-
-    public void setDataPagamento(LocalDate dataPagamento) {
-        this.dataPagamento = dataPagamento;
-    }
-
-    public Emprestimo getEmprestimo() {
-        return emprestimo;
-    }
-
-    public void setEmprestimo(Emprestimo emprestimo) {
-        this.emprestimo = emprestimo;
-    }
-
-    public BigDecimal getValorPago() {
-        return valorPago;
-    }
-
-    public void setValorPago(BigDecimal valorPago) {
         this.valorPago = valorPago;
     }
 }

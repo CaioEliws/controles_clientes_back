@@ -33,7 +33,12 @@ public class EmprestimoService {
                                       BigDecimal valorEmprestado,
                                       int quantidadeParcelas,
                                       BigDecimal jurosCobrado,
-                                      FormaPagamento formaPagamento) {
+                                      FormaPagamento formaPagamento,
+                                      FrequenciaPagamento frequenciaPagamento) {
+
+        if (frequenciaPagamento == null) {
+            throw new RuntimeException("Frequência de pagamento é obrigatória");
+        }
 
         Emprestimo emprestimo = new Emprestimo();
 
@@ -42,10 +47,9 @@ public class EmprestimoService {
         emprestimo.setQuantidadeParcelas(quantidadeParcelas);
         emprestimo.setTaxaDeJuros(jurosCobrado);
         emprestimo.setFormaPagamento(formaPagamento);
+        emprestimo.setFrequenciaPagamento(frequenciaPagamento);
 
         emprestimo.setDataDoEmprestimo(LocalDate.now());
-        emprestimo.setInicioPagamento(LocalDate.now().plusMonths(1));
-        emprestimo.setFinalPagamento(LocalDate.now().plusMonths(quantidadeParcelas));
         emprestimo.setEmprestimoStatus(EmprestimoStatus.EM_ABERTO);
 
         BigDecimal valorParcela =
@@ -64,20 +68,19 @@ public class EmprestimoService {
 
         List<Parcelas> parcelas = calculadora.gerarParcelas(emprestimo);
 
-        parcelas.forEach(p -> {
-            p.setValorPago(BigDecimal.ZERO);
-            p.setStatus(ParcelaStatus.PENDENTE);
-        });
-
         emprestimo.setParcelas(parcelas);
         parcelaRepositorio.saveAll(parcelas);
 
-        return emprestimo;
+        if (!parcelas.isEmpty()) {
+            emprestimo.setInicioPagamento(parcelas.get(0).getDataVencimento());
+            emprestimo.setFinalPagamento(parcelas.get(parcelas.size() - 1).getDataVencimento());
+        }
+
+        return emprestimoRepositorio.save(emprestimo);
     }
 
     @Transactional
     public void pagarParcela(Long idEmprestimo, Integer numeroParcela) {
-
         Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
 
         BigDecimal valorPagoAtual = safe(parcela.getValorPago());
@@ -117,8 +120,7 @@ public class EmprestimoService {
 
         parcela.setValorPago(valorPagoAtual.add(valorPago));
 
-        if (parcela.getValorPago()
-                .compareTo(parcela.getValorParcela()) == 0) {
+        if (parcela.getValorPago().compareTo(parcela.getValorParcela()) == 0) {
             parcela.setStatus(ParcelaStatus.PAGO);
         } else {
             parcela.setStatus(ParcelaStatus.PARCIAL);

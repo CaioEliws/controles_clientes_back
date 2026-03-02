@@ -9,10 +9,8 @@ import com.caio.controle_clientes.services.ClienteService;
 import com.caio.controle_clientes.services.EmprestimoService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -39,16 +37,15 @@ public class EmprestimoController {
                 dto.valorEmprestado(),
                 dto.quantidadeParcelas(),
                 dto.jurosCobrado(),
-                dto.formaPagamento()
+                dto.formaPagamento(),
+                dto.frequenciaPagamento()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @GetMapping
-    public List<Emprestimo> listar(
-            @PathVariable Long idCliente
-    ) {
+    public List<Emprestimo> listar(@PathVariable Long idCliente) {
         Cliente cliente = clienteService.getClienteById(idCliente);
         return emprestimoService.listarEmprestimosCliente(cliente);
     }
@@ -71,9 +68,7 @@ public class EmprestimoController {
     }
 
     @GetMapping("/detalhes")
-    public List<EmprestimoDetalhadoDTO> listarDetalhado(
-            @PathVariable Long idCliente
-    ) {
+    public List<EmprestimoDetalhadoDTO> listarDetalhado(@PathVariable Long idCliente) {
         Cliente cliente = clienteService.getClienteById(idCliente);
         return emprestimoService.listarDetalhado(cliente);
     }

@@ -40,6 +40,10 @@ public class Emprestimo {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    private FrequenciaPagamento frequenciaPagamento;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private EmprestimoStatus emprestimoStatus;
 
     @ManyToOne
@@ -55,149 +59,56 @@ public class Emprestimo {
 
     public Emprestimo() {}
 
-    public Emprestimo(LocalDate dataDoEmprestimo,
-                      FormaPagamento formaPagamento,
-                      BigDecimal valorEmprestado,
-                      Integer quantidadeParcelas,
-                      BigDecimal taxaDeJuros,
-                      BigDecimal valorAReceber,
-                      BigDecimal valorRecebido,
-                      BigDecimal valorTotalEmprestimo,
-                      BigDecimal valorParcela,
-                      LocalDate inicioPagamento,
-                      LocalDate finalPagamento,
-                      EmprestimoStatus emprestimoStatus,
-                      Cliente cliente,
-                      List<Parcelas> parcelas) {
-        this.dataDoEmprestimo = dataDoEmprestimo;
-        this.formaPagamento = formaPagamento;
-        this.valorEmprestado = valorEmprestado;
-        this.quantidadeParcelas = quantidadeParcelas;
-        this.taxaDeJuros = taxaDeJuros;
-        this.valorAReceber = valorAReceber;
-        this.valorRecebido = valorRecebido;
-        this.valorTotalEmprestimo = valorTotalEmprestimo;
-        this.valorParcela = valorParcela;
-        this.inicioPagamento = inicioPagamento;
-        this.finalPagamento = finalPagamento;
-        this.emprestimoStatus = emprestimoStatus;
-        this.cliente = cliente;
-        this.parcelas = parcelas;
+    public FrequenciaPagamento getFrequenciaPagamento() {
+        return frequenciaPagamento;
     }
 
-    public Long getId() {
-        return id;
+    public void setFrequenciaPagamento(FrequenciaPagamento frequenciaPagamento) {
+        this.frequenciaPagamento = frequenciaPagamento;
     }
 
-    public LocalDate getDataDoEmprestimo() {
-        return dataDoEmprestimo;
-    }
 
-    public void setDataDoEmprestimo(LocalDate dataDoEmprestimo) {
-        this.dataDoEmprestimo = dataDoEmprestimo;
-    }
+    public Long getId() { return id; }
 
-    public FormaPagamento getFormaPagamento() {
-        return formaPagamento;
-    }
+    public LocalDate getDataDoEmprestimo() { return dataDoEmprestimo; }
+    public void setDataDoEmprestimo(LocalDate dataDoEmprestimo) { this.dataDoEmprestimo = dataDoEmprestimo; }
 
-    public void setFormaPagamento(FormaPagamento formaPagamento) {
-        this.formaPagamento = formaPagamento;
-    }
+    public FormaPagamento getFormaPagamento() { return formaPagamento; }
+    public void setFormaPagamento(FormaPagamento formaPagamento) { this.formaPagamento = formaPagamento; }
 
-    public BigDecimal getValorEmprestado() {
-        return valorEmprestado;
-    }
+    public BigDecimal getValorEmprestado() { return valorEmprestado; }
+    public void setValorEmprestado(BigDecimal valorEmprestado) { this.valorEmprestado = valorEmprestado; }
 
-    public void setValorEmprestado(BigDecimal valorEmprestado) {
-        this.valorEmprestado = valorEmprestado;
-    }
+    public Integer getQuantidadeParcelas() { return quantidadeParcelas; }
+    public void setQuantidadeParcelas(Integer quantidadeParcelas) { this.quantidadeParcelas = quantidadeParcelas; }
 
-    public Integer getQuantidadeParcelas() {
-        return quantidadeParcelas;
-    }
+    public BigDecimal getTaxaDeJuros() { return taxaDeJuros; }
+    public void setTaxaDeJuros(BigDecimal taxaDeJuros) { this.taxaDeJuros = taxaDeJuros; }
 
-    public void setQuantidadeParcelas(Integer quantidadeParcelas) {
-        this.quantidadeParcelas = quantidadeParcelas;
-    }
+    public BigDecimal getValorAReceber() { return valorAReceber; }
+    public void setValorAReceber(BigDecimal valorAReceber) { this.valorAReceber = valorAReceber; }
 
-    public BigDecimal getTaxaDeJuros() {
-        return taxaDeJuros;
-    }
+    public BigDecimal getValorRecebido() { return valorRecebido; }
+    public void setValorRecebido(BigDecimal valorRecebido) { this.valorRecebido = valorRecebido; }
 
-    public void setTaxaDeJuros(BigDecimal taxaDeJuros) {
-        this.taxaDeJuros = taxaDeJuros;
-    }
+    public BigDecimal getValorTotalEmprestimo() { return valorTotalEmprestimo; }
+    public void setValorTotalEmprestimo(BigDecimal valorTotalEmprestimo) { this.valorTotalEmprestimo = valorTotalEmprestimo; }
 
-    public BigDecimal getValorAReceber() {
-        return valorAReceber;
-    }
+    public BigDecimal getValorParcela() { return valorParcela; }
+    public void setValorParcela(BigDecimal valorParcela) { this.valorParcela = valorParcela; }
 
-    public void setValorAReceber(BigDecimal valorAReceber) {
-        this.valorAReceber = valorAReceber;
-    }
+    public LocalDate getInicioPagamento() { return inicioPagamento; }
+    public void setInicioPagamento(LocalDate inicioPagamento) { this.inicioPagamento = inicioPagamento; }
 
-    public BigDecimal getValorRecebido() {
-        return valorRecebido;
-    }
+    public LocalDate getFinalPagamento() { return finalPagamento; }
+    public void setFinalPagamento(LocalDate finalPagamento) { this.finalPagamento = finalPagamento; }
 
-    public void setValorRecebido(BigDecimal valorRecebido) {
-        this.valorRecebido = valorRecebido;
-    }
+    public EmprestimoStatus getEmprestimoStatus() { return emprestimoStatus; }
+    public void setEmprestimoStatus(EmprestimoStatus emprestimoStatus) { this.emprestimoStatus = emprestimoStatus; }
 
-    public BigDecimal getValorTotalEmprestimo() {
-        return valorTotalEmprestimo;
-    }
+    public Cliente getCliente() { return cliente; }
+    public void setCliente(Cliente cliente) { this.cliente = cliente; }
 
-    public void setValorTotalEmprestimo(BigDecimal valorTotalEmprestimo) {
-        this.valorTotalEmprestimo = valorTotalEmprestimo;
-    }
-
-    public BigDecimal getValorParcela() {
-        return valorParcela;
-    }
-
-    public void setValorParcela(BigDecimal valorParcela) {
-        this.valorParcela = valorParcela;
-    }
-
-    public LocalDate getInicioPagamento() {
-        return inicioPagamento;
-    }
-
-    public void setInicioPagamento(LocalDate inicioPagamento) {
-        this.inicioPagamento = inicioPagamento;
-    }
-
-    public LocalDate getFinalPagamento() {
-        return finalPagamento;
-    }
-
-    public void setFinalPagamento(LocalDate finalPagamento) {
-        this.finalPagamento = finalPagamento;
-    }
-
-    public EmprestimoStatus getEmprestimoStatus() {
-        return emprestimoStatus;
-    }
-
-    public void setEmprestimoStatus(EmprestimoStatus emprestimoStatus) {
-        this.emprestimoStatus = emprestimoStatus;
-    }
-
-    public Cliente getCliente() {
-        return cliente;
-    }
-
-    public void setCliente(Cliente cliente) {
-        this.cliente = cliente;
-    }
-
-    public List<Parcelas> getParcelas() {
-        return parcelas;
-    }
-
-    public void setParcelas(List<Parcelas> parcelas) {
-        this.parcelas = parcelas;
-    }
+    public List<Parcelas> getParcelas() { return parcelas; }
+    public void setParcelas(List<Parcelas> parcelas) { this.parcelas = parcelas; }
 }
