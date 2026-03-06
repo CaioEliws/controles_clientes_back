@@ -27,14 +27,26 @@ public class ParcelaService {
 
     @Transactional
     public void atualizarParcelasAtrasadas() {
-        List<Parcelas> atrasadas =
+        LocalDate hoje = LocalDate.now();
+
+        List<Parcelas> pendentesAtrasadas =
                 parcelaRepositorio.findByStatusAndDataVencimentoBefore(
-                        ParcelaStatus.PENDENTE, LocalDate.now()
+                        ParcelaStatus.PENDENTE, hoje
                 );
 
-        atrasadas.forEach(p -> p.setStatus(ParcelaStatus.ATRASADO));
+        List<Parcelas> parciaisAtrasadas =
+                parcelaRepositorio.findByStatusAndDataVencimentoBefore(
+                        ParcelaStatus.PARCIAL, hoje
+                );
 
-        parcelaRepositorio.saveAll(atrasadas);
+        pendentesAtrasadas.forEach(p -> p.setStatus(ParcelaStatus.ATRASADO));
+        parciaisAtrasadas.forEach(p -> p.setStatus(ParcelaStatus.ATRASADO));
+
+        pendentesAtrasadas.addAll(parciaisAtrasadas);
+
+        if (!pendentesAtrasadas.isEmpty()) {
+            parcelaRepositorio.saveAll(pendentesAtrasadas);
+        }
     }
 
     @Transactional
@@ -125,12 +137,16 @@ public class ParcelaService {
             return;
         }
 
-        if (valorPagoAtual.compareTo(valorParcela) == 0) {
+        if (valorPagoAtual.compareTo(valorParcela) >= 0) {
             parcela.setStatus(ParcelaStatus.PAGO);
             return;
         }
 
-        parcela.setStatus(ParcelaStatus.PARCIAL);
+        if (novaData.isBefore(LocalDate.now())) {
+            parcela.setStatus(ParcelaStatus.ATRASADO);
+        } else {
+            parcela.setStatus(ParcelaStatus.PARCIAL);
+        }
     }
 
     private void recalcularTotaisEmprestimo(Emprestimo emprestimo) {
@@ -165,7 +181,7 @@ public class ParcelaService {
     }
 
     private Parcelas buscarParcela(Long idEmprestimo, Integer numeroParcela) {
-        return (Parcelas) parcelaRepositorio
+        return parcelaRepositorio
                 .findByEmprestimoIdAndNumeroParcela(idEmprestimo, numeroParcela)
                 .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
     }

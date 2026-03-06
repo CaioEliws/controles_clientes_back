@@ -30,9 +30,7 @@ public class ParcelaController {
     }
 
     @PostMapping("/pagar")
-    public ResponseEntity<Void> pagarParcela(
-            @RequestBody PagarParcelaDTO dto
-    ) {
+    public ResponseEntity<Void> pagarParcela(@RequestBody PagarParcelaDTO dto) {
         emprestimoService.pagarParcela(
                 dto.idEmprestimo(),
                 dto.numeroParcela()
@@ -41,9 +39,7 @@ public class ParcelaController {
     }
 
     @PostMapping("/pagar-parcial")
-    public ResponseEntity<Void> pagarParcelaParcial(
-            @RequestBody PagarParcelaParcialDTO dto
-    ) {
+    public ResponseEntity<Void> pagarParcelaParcial(@RequestBody PagarParcelaParcialDTO dto) {
         emprestimoService.pagarParcelaParcial(
                 dto.idEmprestimo(),
                 dto.numeroParcela(),
@@ -53,9 +49,7 @@ public class ParcelaController {
     }
 
     @GetMapping
-    public List<ParcelaResponseDTO> listarPorStatus(
-            @RequestParam ParcelaStatus status
-    ) {
+    public List<ParcelaResponseDTO> listarPorStatus(@RequestParam ParcelaStatus status) {
         parcelaService.atualizarParcelasAtrasadas();
 
         return parcelaRepositorio
@@ -70,8 +64,8 @@ public class ParcelaController {
         parcelaService.atualizarParcelasAtrasadas();
 
         return parcelaRepositorio.findParcelasVencendoHoje(
-                        ParcelaStatus.PENDENTE,
-                        LocalDate.now()
+                        LocalDate.now(),
+                        List.of(ParcelaStatus.PENDENTE, ParcelaStatus.PARCIAL)
                 ).stream()
                 .map(parcelaService::toDTO)
                 .toList();
@@ -82,8 +76,7 @@ public class ParcelaController {
         parcelaService.atualizarParcelasAtrasadas();
 
         LocalDate inicio = LocalDate.now().withDayOfMonth(1);
-        LocalDate fim = LocalDate.now()
-                .withDayOfMonth(LocalDate.now().lengthOfMonth());
+        LocalDate fim = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
 
         return parcelaRepositorio.findParcelasDoMes(inicio, fim)
                 .stream()
@@ -92,9 +85,7 @@ public class ParcelaController {
     }
 
     @PatchMapping("/alterar")
-    public ResponseEntity<Void> alterarParcela(
-            @RequestBody AlterarParcelaDTO dto
-    ) {
+    public ResponseEntity<Void> alterarParcela(@RequestBody AlterarParcelaDTO dto) {
         parcelaService.alterarParcela(
                 dto.idEmprestimo(),
                 dto.numeroParcela(),

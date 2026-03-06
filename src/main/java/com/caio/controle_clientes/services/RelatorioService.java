@@ -76,8 +76,11 @@ public class RelatorioService {
     }
 
     public List<InadimplenteDTO> gerarRelatorioInadimplentes() {
-        List <Parcelas> parcelasAtrasadas =
-                parcelaRepositorio.findParcelasAtrasadasComCliente(ParcelaStatus.ATRASADO);
+        List<Parcelas> parcelasAtrasadas =
+                parcelaRepositorio.findParcelasAtrasadasComCliente(
+                        LocalDate.now(),
+                        List.of(ParcelaStatus.ATRASADO, ParcelaStatus.PARCIAL)
+                );
 
         if (parcelasAtrasadas.isEmpty()) {
             return List.of();
@@ -93,7 +96,9 @@ public class RelatorioService {
 
                     BigDecimal totalEmAtraso =
                             parcelasCliente.stream()
-                                    .map(Parcelas::getValorParcela)
+                                    .map(p -> p.getValorParcela().subtract(
+                                            p.getValorPago() == null ? BigDecimal.ZERO : p.getValorPago()
+                                    ))
                                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     LocalDate ultimoVencimento =
