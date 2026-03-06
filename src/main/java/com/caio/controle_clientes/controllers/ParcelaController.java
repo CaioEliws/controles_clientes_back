@@ -1,11 +1,10 @@
 package com.caio.controle_clientes.controllers;
 
-import com.caio.controle_clientes.dto.AlterarDataParcelaDTO;
+import com.caio.controle_clientes.dto.AlterarParcelaDTO;
 import com.caio.controle_clientes.dto.PagarParcelaDTO;
 import com.caio.controle_clientes.dto.PagarParcelaParcialDTO;
 import com.caio.controle_clientes.dto.ParcelaResponseDTO;
 import com.caio.controle_clientes.models.ParcelaStatus;
-import com.caio.controle_clientes.models.Parcelas;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
 import com.caio.controle_clientes.services.EmprestimoService;
 import com.caio.controle_clientes.services.ParcelaService;
@@ -92,17 +91,17 @@ public class ParcelaController {
                 .toList();
     }
 
-    @PatchMapping("/alterar-data")
-    public ResponseEntity<Void> alterarDataParcela(
-            @RequestBody AlterarDataParcelaDTO dto
+    @PatchMapping("/alterar")
+    public ResponseEntity<Void> alterarParcela(
+            @RequestBody AlterarParcelaDTO dto
     ) {
-        parcelaService.alterarDataVencimento(
+        parcelaService.alterarParcela(
                 dto.idEmprestimo(),
                 dto.numeroParcela(),
-                dto.novaData()
+                dto.novaData(),
+                dto.novoValor()
         );
 
         return ResponseEntity.noContent().build();
     }
 }
-
