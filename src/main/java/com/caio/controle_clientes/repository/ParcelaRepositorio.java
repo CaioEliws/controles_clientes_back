@@ -12,45 +12,67 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
-    Optional<Parcelas> findById(Long id);
 
-    Optional<Object> findByEmprestimoIdAndNumeroParcela(Long idEmprestimo, Integer numeroParcela);
+    List<Parcelas> findByEmprestimo(Emprestimo emprestimo);
 
-    @Query("SELECT p FROM Parcelas p JOIN FETCH p.emprestimo e JOIN FETCH e.cliente WHERE p.status = :status ORDER BY p.dataVencimento ASC")
-    List<Parcelas> findParcelasComEmprestimoEClientePorStatus(@Param("status") ParcelaStatus pendente);
+    List<Parcelas> findByStatusAndDataVencimentoBefore(
+            ParcelaStatus status,
+            LocalDate data
+    );
 
-    List<Parcelas> findByStatusAndDataVencimentoBefore(ParcelaStatus parcelaStatus, LocalDate now);
-
-    @Query("SELECT p FROM Parcelas p JOIN FETCH p.emprestimo e JOIN FETCH e.cliente c WHERE p.status = :status AND p.dataVencimento = :data")
-    List<Parcelas> findParcelasVencendoHoje(@Param("status") ParcelaStatus status,
-                                            @Param("data") LocalDate dataVencimento);
+    Optional<Parcelas> findByEmprestimoIdAndNumeroParcela(
+            Long idEmprestimo,
+            Integer numeroParcela
+    );
 
     @Query("""
-        SELECT p FROM Parcelas p
+        SELECT p
+        FROM Parcelas p
         JOIN FETCH p.emprestimo e
-        JOIN FETCH e.cliente
+        JOIN FETCH e.cliente c
+        WHERE p.status = :status
+        ORDER BY p.dataVencimento ASC
+    """)
+    List<Parcelas> findParcelasComEmprestimoEClientePorStatus(
+            @Param("status") ParcelaStatus status
+    );
+
+    @Query("""
+        SELECT p
+        FROM Parcelas p
+        JOIN FETCH p.emprestimo e
+        JOIN FETCH e.cliente c
+        WHERE p.dataVencimento = :data
+          AND p.status IN :statuses
+        ORDER BY c.nome ASC, p.numeroParcela ASC
+    """)
+    List<Parcelas> findParcelasVencendoHoje(
+            @Param("statuses") List<ParcelaStatus> statuses,
+            @Param("data") LocalDate data
+    );
+
+    @Query("""
+        SELECT p
+        FROM Parcelas p
+        JOIN FETCH p.emprestimo e
+        JOIN FETCH e.cliente c
         WHERE p.dataVencimento BETWEEN :inicio AND :fim
-        ORDER BY
-          CASE
-            WHEN p.status = 'ATRASADO' THEN 1
-            WHEN p.status = 'PENDENTE' THEN 2
-            WHEN p.status = 'PAGO' THEN 3
-          END,
-          p.dataVencimento ASC
+        ORDER BY p.dataVencimento ASC
     """)
     List<Parcelas> findParcelasDoMes(
             @Param("inicio") LocalDate inicio,
             @Param("fim") LocalDate fim
     );
 
-    List<Parcelas> findByEmprestimo(Emprestimo e);
-
     @Query("""
-            SELECT p from Parcelas p
-            JOIN FETCH p.emprestimo e
-            JOIN FETCH e.cliente c
-            WHERE p.status = :status
-            """
-    )
-    List<Parcelas> findParcelasAtrasadasComCliente(ParcelaStatus status);
+        SELECT p
+        FROM Parcelas p
+        JOIN FETCH p.emprestimo e
+        JOIN FETCH e.cliente c
+        WHERE p.status = :status
+        ORDER BY c.nome ASC, p.dataVencimento ASC
+    """)
+    List<Parcelas> findParcelasAtrasadasComCliente(
+            @Param("status") ParcelaStatus status
+    );
 }
