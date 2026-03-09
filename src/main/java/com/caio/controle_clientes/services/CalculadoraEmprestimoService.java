@@ -1,6 +1,9 @@
 package com.caio.controle_clientes.services;
 
-import com.caio.controle_clientes.models.*;
+import com.caio.controle_clientes.models.Emprestimo;
+import com.caio.controle_clientes.models.FrequenciaPagamento;
+import com.caio.controle_clientes.models.ParcelaStatus;
+import com.caio.controle_clientes.models.Parcelas;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,6 +23,14 @@ public class CalculadoraEmprestimoService {
         BigDecimal i = taxaJuros
                 .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
 
+        if (i.compareTo(BigDecimal.ZERO) == 0) {
+            return valorEmprestado.divide(
+                    BigDecimal.valueOf(quantidadeParcelas),
+                    2,
+                    RoundingMode.HALF_UP
+            );
+        }
+
         BigDecimal umMaisI = BigDecimal.ONE.add(i);
         BigDecimal potencia = umMaisI.pow(quantidadeParcelas);
         BigDecimal potenciaNegativa = BigDecimal.ONE
@@ -32,12 +43,9 @@ public class CalculadoraEmprestimoService {
     }
 
     public List<Parcelas> gerarParcelas(Emprestimo emprestimo) {
-        if (emprestimo.getFrequenciaPagamento() == null) {
-            throw new RuntimeException("Frequência de pagamento não informada");
-        }
+        FrequenciaPagamento frequencia = validarFrequencia(emprestimo);
 
         List<Parcelas> parcelas = new ArrayList<>();
-
         BigDecimal saldoDevedor = emprestimo.getValorEmprestado();
 
         BigDecimal taxa = emprestimo.getTaxaDeJuros()
@@ -49,35 +57,48 @@ public class CalculadoraEmprestimoService {
                 emprestimo.getQuantidadeParcelas()
         ).setScale(2, RoundingMode.HALF_UP);
 
-        LocalDate vencimento = calcularPrimeiroVencimento(emprestimo.getFrequenciaPagamento());
+        LocalDate vencimento = calcularPrimeiroVencimento(frequencia);
 
         for (int numeroParcela = 1; numeroParcela <= emprestimo.getQuantidadeParcelas(); numeroParcela++) {
-
             BigDecimal jurosParcela = saldoDevedor.multiply(taxa);
             BigDecimal amortizacao = valorParcela.subtract(jurosParcela);
             saldoDevedor = saldoDevedor.subtract(amortizacao);
 
-            Parcelas parcela = new Parcelas();
-            parcela.setNumeroParcela(numeroParcela);
-            parcela.setValorParcela(valorParcela);
-            parcela.setDataVencimento(vencimento);
-            parcela.setStatus(ParcelaStatus.PENDENTE);
-            parcela.setValorPago(BigDecimal.ZERO);
-            parcela.setEmprestimo(emprestimo);
-
-            parcelas.add(parcela);
-
-            vencimento = proximoVencimento(vencimento, emprestimo.getFrequenciaPagamento());
+            parcelas.add(criarParcela(emprestimo, numeroParcela, valorParcela, vencimento));
+            vencimento = proximoVencimento(vencimento, frequencia);
         }
 
         return parcelas;
     }
 
+    private FrequenciaPagamento validarFrequencia(Emprestimo emprestimo) {
+        if (emprestimo.getFrequenciaPagamento() == null) {
+            throw new RuntimeException("Frequência de pagamento não informada");
+        }
+        return emprestimo.getFrequenciaPagamento();
+    }
+
+    private Parcelas criarParcela(Emprestimo emprestimo,
+                                  int numeroParcela,
+                                  BigDecimal valorParcela,
+                                  LocalDate vencimento) {
+        Parcelas parcela = new Parcelas();
+        parcela.setNumeroParcela(numeroParcela);
+        parcela.setValorParcela(valorParcela);
+        parcela.setDataVencimento(vencimento);
+        parcela.setStatus(ParcelaStatus.PENDENTE);
+        parcela.setValorPago(BigDecimal.ZERO);
+        parcela.setEmprestimo(emprestimo);
+        return parcela;
+    }
+
     private LocalDate calcularPrimeiroVencimento(FrequenciaPagamento freq) {
         LocalDate base = LocalDate.now();
+
         return switch (freq) {
             case DIARIO -> ajustarSeDomingo(base.plusDays(1));
             case SEMANAL -> base.plusWeeks(1);
+            case QUINZENAL -> base.plusDays(15);
             case MENSAL -> base.plusMonths(1);
         };
     }
@@ -86,6 +107,7 @@ public class CalculadoraEmprestimoService {
         return switch (freq) {
             case DIARIO -> ajustarSeDomingo(atual.plusDays(1));
             case SEMANAL -> atual.plusWeeks(1);
+            case QUINZENAL -> atual.plusDays(15);
             case MENSAL -> atual.plusMonths(1);
         };
     }

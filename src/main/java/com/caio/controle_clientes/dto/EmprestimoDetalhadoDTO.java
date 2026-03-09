@@ -10,6 +10,8 @@ public record EmprestimoDetalhadoDTO(
         String nomeCliente,
         LocalDate dataEmprestimo,
         String formaPagamento,
+        String frequenciaPagamento,
+        String tipoContrato,
         BigDecimal valorEmprestado,
         BigDecimal valorTotalEmprestimo,
         BigDecimal valorParcela,

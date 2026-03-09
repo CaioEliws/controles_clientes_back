@@ -30,22 +30,23 @@ public class ImportService {
     private static final int COL_CLIENTE = 1;
     private static final int COL_INDICACAO = 2;
     private static final int COL_FORMA_PGTO = 3;
-    private static final int COL_PAGAMENTO_FREQUENCIA = 4;
+    private static final int COL_CONTRATO = 4;
+    private static final int COL_PAGAMENTO_FREQUENCIA = 5;
 
-    private static final int COL_VALOR_EMPRESTIMO = 5;
-    private static final int COL_QTDE_PARCELAS = 6;
-    private static final int COL_QTDE_PARCELAS_PAGAS = 7;
+    private static final int COL_VALOR_EMPRESTIMO = 6;
+    private static final int COL_QTDE_PARCELAS = 7;
+    private static final int COL_QTDE_PARCELAS_PAGAS = 8;
 
-    private static final int COL_VALOR_A_RECEBER = 9;
-    private static final int COL_VALOR_RECEBIDO = 10;
-    private static final int COL_VALOR_TOTAL_EMPRESTIMOS = 12;
+    private static final int COL_VALOR_A_RECEBER = 10;
+    private static final int COL_VALOR_RECEBIDO = 11;
+    private static final int COL_VALOR_TOTAL_EMPRESTIMOS = 13;
 
-    private static final int COL_VALOR_PARCELA = 13;
-    private static final int COL_TX_JUROS = 14;
+    private static final int COL_VALOR_PARCELA = 14;
+    private static final int COL_TX_JUROS = 15;
 
-    private static final int COL_INICIO_PGTO = 15;
-    private static final int COL_FINAL_PGTO = 16;
-    private static final int COL_SITUACAO = 17;
+    private static final int COL_INICIO_PGTO = 16;
+    private static final int COL_FINAL_PGTO = 17;
+    private static final int COL_SITUACAO = 18;
 
     public void importarPlanilha(InputStream file) throws Exception {
         Workbook workbook = WorkbookFactory.create(file);
@@ -73,6 +74,9 @@ public class ImportService {
                 String nomeClienteOriginal = getString(row.getCell(COL_CLIENTE));
                 String nomeIndicador = getString(row.getCell(COL_INDICACAO));
                 String formaStr = getString(row.getCell(COL_FORMA_PGTO));
+
+                String contratoStr = getString(row.getCell(COL_CONTRATO));
+                TipoContrato tipoContrato = converterTipoContrato(contratoStr);
 
                 String frequenciaStr = getString(row.getCell(COL_PAGAMENTO_FREQUENCIA));
                 FrequenciaPagamento frequenciaPagamento = converterFrequencia(frequenciaStr);
@@ -130,23 +134,17 @@ public class ImportService {
                 emp.setCliente(cliente);
                 emp.setDataDoEmprestimo(dataEmprestimo);
                 emp.setFormaPagamento(formaPagamento);
-
-                // ✅ NOVO
                 emp.setFrequenciaPagamento(frequenciaPagamento);
-
+                emp.setTipoContrato(tipoContrato);
                 emp.setValorEmprestado(valorEmprestado);
                 emp.setQuantidadeParcelas(totalParcelas);
-
                 emp.setValorAReceber(valorAReceber);
                 emp.setValorRecebido(valorRecebido);
                 emp.setValorTotalEmprestimo(valorTotalEmprestimos);
-
                 emp.setTaxaDeJuros(taxaJurosPercentual);
                 emp.setValorParcela(valorParcela);
-
                 emp.setInicioPagamento(inicioPgto);
                 emp.setFinalPagamento(fimPgto);
-
                 emp.setEmprestimoStatus(situacao);
 
                 emp = emprestimoRepository.save(emp);
@@ -302,9 +300,10 @@ public class ImportService {
 
     private LocalDate proximoVencimento(LocalDate atual, FrequenciaPagamento freq) {
         return switch (freq) {
-            case MENSAL -> atual.plusMonths(1);
-            case SEMANAL -> atual.plusWeeks(1);
             case DIARIO -> ajustarSeDomingo(atual.plusDays(1));
+            case SEMANAL -> atual.plusWeeks(1);
+            case QUINZENAL -> atual.plusDays(15);
+            case MENSAL -> atual.plusMonths(1);
         };
     }
 
@@ -322,9 +321,24 @@ public class ImportService {
 
         if (normalized.startsWith("DIA")) return FrequenciaPagamento.DIARIO;
         if (normalized.startsWith("SEM")) return FrequenciaPagamento.SEMANAL;
+        if (normalized.startsWith("QUI")) return FrequenciaPagamento.QUINZENAL;
         if (normalized.startsWith("MEN") || normalized.startsWith("MES")) return FrequenciaPagamento.MENSAL;
 
         return FrequenciaPagamento.MENSAL;
+    }
+
+    private TipoContrato converterTipoContrato(String raw) {
+        if (raw == null || raw.isBlank()) return TipoContrato.FISICO;
+
+        String normalized = Normalizer.normalize(raw, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .trim()
+                .toUpperCase();
+
+        if (normalized.startsWith("DIG")) return TipoContrato.DIGITAL;
+        if (normalized.startsWith("FIS")) return TipoContrato.FISICO;
+
+        return TipoContrato.FISICO;
     }
 
     private EmprestimoStatus converterStatus(String s) {

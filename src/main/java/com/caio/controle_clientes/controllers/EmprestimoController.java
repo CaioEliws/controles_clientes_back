@@ -38,7 +38,8 @@ public class EmprestimoController {
                 dto.quantidadeParcelas(),
                 dto.jurosCobrado(),
                 dto.formaPagamento(),
-                dto.frequenciaPagamento()
+                dto.frequenciaPagamento(),
+                dto.tipoContrato()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).build();

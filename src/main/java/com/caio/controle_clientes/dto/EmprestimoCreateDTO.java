@@ -2,13 +2,15 @@ package com.caio.controle_clientes.dto;
 
 import com.caio.controle_clientes.models.FormaPagamento;
 import com.caio.controle_clientes.models.FrequenciaPagamento;
+import com.caio.controle_clientes.models.TipoContrato;
 
 import java.math.BigDecimal;
 
 public record EmprestimoCreateDTO(
         BigDecimal valorEmprestado,
-        Integer quantidadeParcelas,
+        int quantidadeParcelas,
         BigDecimal jurosCobrado,
         FormaPagamento formaPagamento,
-        FrequenciaPagamento frequenciaPagamento
+        FrequenciaPagamento frequenciaPagamento,
+        TipoContrato tipoContrato
 ) {}

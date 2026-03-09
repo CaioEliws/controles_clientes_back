@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -153,6 +154,7 @@ public class ExportService {
 
     private static String toLabelFrequencia(FrequenciaPagamento f) {
         return switch (f) {
+            case QUINZENAL -> "Quinzenal";
             case MENSAL -> "Mensal";
             case SEMANAL -> "Semanal";
             case DIARIO -> "Diário";
@@ -168,7 +170,7 @@ public class ExportService {
     private static void setDate(Row r, int col, LocalDate date, CellStyle style) {
         Cell c = r.createCell(col);
         if (date == null) return;
-        c.setCellValue(java.sql.Date.valueOf(date));
+        c.setCellValue(Date.valueOf(date));
         c.setCellStyle(style);
     }
 
