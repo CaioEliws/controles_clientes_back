@@ -8,6 +8,7 @@ import com.caio.controle_clientes.models.ParcelaStatus;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
 import com.caio.controle_clientes.services.EmprestimoService;
 import com.caio.controle_clientes.services.ParcelaService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,22 +17,20 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/parcelas")
+@RequiredArgsConstructor
 public class ParcelaController {
+
     private final EmprestimoService emprestimoService;
     private final ParcelaRepositorio parcelaRepositorio;
     private final ParcelaService parcelaService;
 
-    public ParcelaController(EmprestimoService emprestimoService,
-                             ParcelaRepositorio parcelaRepositorio,
-                             ParcelaService parcelaService) {
-        this.emprestimoService = emprestimoService;
-        this.parcelaRepositorio = parcelaRepositorio;
-        this.parcelaService = parcelaService;
-    }
-
     @PostMapping("/pagar")
-    public ResponseEntity<Void> pagarParcela(@RequestBody PagarParcelaDTO dto) {
+    public ResponseEntity<Void> pagarParcela(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestBody PagarParcelaDTO dto
+    ) {
         emprestimoService.pagarParcela(
+                perfilId,
                 dto.idEmprestimo(),
                 dto.numeroParcela()
         );
@@ -39,8 +38,12 @@ public class ParcelaController {
     }
 
     @PostMapping("/pagar-parcial")
-    public ResponseEntity<Void> pagarParcelaParcial(@RequestBody PagarParcelaParcialDTO dto) {
+    public ResponseEntity<Void> pagarParcelaParcial(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestBody PagarParcelaParcialDTO dto
+    ) {
         emprestimoService.pagarParcelaParcial(
+                perfilId,
                 dto.idEmprestimo(),
                 dto.numeroParcela(),
                 dto.valorPago()
@@ -49,44 +52,63 @@ public class ParcelaController {
     }
 
     @GetMapping
-    public List<ParcelaResponseDTO> listarPorStatus(@RequestParam ParcelaStatus status) {
-        parcelaService.atualizarParcelasAtrasadas();
+    public ResponseEntity<List<ParcelaResponseDTO>> listarPorStatus(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestParam ParcelaStatus status
+    ) {
+        parcelaService.atualizarParcelasAtrasadas(perfilId);
 
-        return parcelaRepositorio
-                .findParcelasComEmprestimoEClientePorStatus(status)
+        List<ParcelaResponseDTO> response = parcelaRepositorio
+                .findParcelasComEmprestimoEClientePorStatus(status, perfilId)
                 .stream()
                 .map(parcelaService::toDTO)
                 .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/vencendo-hoje")
-    public List<ParcelaResponseDTO> vencendoHoje() {
-        parcelaService.atualizarParcelasAtrasadas();
+    public ResponseEntity<List<ParcelaResponseDTO>> vencendoHoje(
+            @RequestHeader("X-Perfil-Id") Long perfilId
+    ) {
+        parcelaService.atualizarParcelasAtrasadas(perfilId);
 
-        return parcelaRepositorio.findParcelasVencendoHoje(
+        List<ParcelaResponseDTO> response = parcelaRepositorio.findParcelasVencendoHoje(
                         LocalDate.now(),
-                        List.of(ParcelaStatus.PENDENTE, ParcelaStatus.PARCIAL)
+                        List.of(ParcelaStatus.PENDENTE, ParcelaStatus.PARCIAL),
+                        perfilId
                 ).stream()
                 .map(parcelaService::toDTO)
                 .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/mes-atual")
-    public List<ParcelaResponseDTO> parcelasDoMes() {
-        parcelaService.atualizarParcelasAtrasadas();
+    public ResponseEntity<List<ParcelaResponseDTO>> parcelasDoMes(
+            @RequestHeader("X-Perfil-Id") Long perfilId
+    ) {
+        parcelaService.atualizarParcelasAtrasadas(perfilId);
 
-        LocalDate inicio = LocalDate.now().withDayOfMonth(1);
-        LocalDate fim = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicio = hoje.withDayOfMonth(1);
+        LocalDate fim = hoje.withDayOfMonth(hoje.lengthOfMonth());
 
-        return parcelaRepositorio.findParcelasDoMes(inicio, fim)
+        List<ParcelaResponseDTO> response = parcelaRepositorio.findParcelasDoMes(inicio, fim, perfilId)
                 .stream()
                 .map(parcelaService::toDTO)
                 .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/alterar")
-    public ResponseEntity<Void> alterarParcela(@RequestBody AlterarParcelaDTO dto) {
+    public ResponseEntity<Void> alterarParcela(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestBody AlterarParcelaDTO dto
+    ) {
         parcelaService.alterarParcela(
+                perfilId,
                 dto.idEmprestimo(),
                 dto.numeroParcela(),
                 dto.novaData(),

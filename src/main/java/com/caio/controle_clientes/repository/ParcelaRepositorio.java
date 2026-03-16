@@ -13,9 +13,11 @@ import java.util.Optional;
 
 public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
 
-    Optional<Parcelas> findById(Long id);
+    Optional<Parcelas> findByIdAndPerfilId(Long id, Long perfilId);
 
-    Optional<Parcelas> findByEmprestimoIdAndNumeroParcela(Long idEmprestimo, Integer numeroParcela);
+    Optional<Parcelas> findByEmprestimoIdAndPerfilIdAndNumeroParcela(Long idEmprestimo,
+                                                                     Long perfilId,
+                                                                     Integer numeroParcela);
 
     @Query("""
         SELECT p
@@ -23,11 +25,15 @@ public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
         JOIN FETCH p.emprestimo e
         JOIN FETCH e.cliente c
         WHERE p.status = :status
+          AND p.perfil.id = :perfilId
         ORDER BY p.dataVencimento ASC
     """)
-    List<Parcelas> findParcelasComEmprestimoEClientePorStatus(@Param("status") ParcelaStatus status);
+    List<Parcelas> findParcelasComEmprestimoEClientePorStatus(@Param("status") ParcelaStatus status,
+                                                              @Param("perfilId") Long perfilId);
 
-    List<Parcelas> findByStatusAndDataVencimentoBefore(ParcelaStatus status, LocalDate data);
+    List<Parcelas> findByStatusAndPerfilIdAndDataVencimentoBefore(ParcelaStatus status,
+                                                                  Long perfilId,
+                                                                  LocalDate data);
 
     @Query("""
         SELECT p
@@ -36,12 +42,12 @@ public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
         JOIN FETCH e.cliente c
         WHERE p.dataVencimento < :data
           AND p.status IN :statuses
+          AND p.perfil.id = :perfilId
         ORDER BY p.dataVencimento ASC
     """)
-    List<Parcelas> findParcelasEmAbertoVencidas(
-            @Param("data") LocalDate data,
-            @Param("statuses") List<ParcelaStatus> statuses
-    );
+    List<Parcelas> findParcelasEmAbertoVencidas(@Param("data") LocalDate data,
+                                                @Param("statuses") List<ParcelaStatus> statuses,
+                                                @Param("perfilId") Long perfilId);
 
     @Query("""
         SELECT p
@@ -50,12 +56,12 @@ public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
         JOIN FETCH e.cliente c
         WHERE p.dataVencimento = :data
           AND p.status IN :statuses
+          AND p.perfil.id = :perfilId
         ORDER BY p.numeroParcela ASC
     """)
-    List<Parcelas> findParcelasVencendoHoje(
-            @Param("data") LocalDate data,
-            @Param("statuses") List<ParcelaStatus> statuses
-    );
+    List<Parcelas> findParcelasVencendoHoje(@Param("data") LocalDate data,
+                                            @Param("statuses") List<ParcelaStatus> statuses,
+                                            @Param("perfilId") Long perfilId);
 
     @Query("""
         SELECT p
@@ -63,6 +69,7 @@ public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
         JOIN FETCH p.emprestimo e
         JOIN FETCH e.cliente c
         WHERE p.dataVencimento BETWEEN :inicio AND :fim
+          AND p.perfil.id = :perfilId
         ORDER BY
           CASE
             WHEN p.status = 'ATRASADO' THEN 1
@@ -72,12 +79,11 @@ public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
           END,
           p.dataVencimento ASC
     """)
-    List<Parcelas> findParcelasDoMes(
-            @Param("inicio") LocalDate inicio,
-            @Param("fim") LocalDate fim
-    );
+    List<Parcelas> findParcelasDoMes(@Param("inicio") LocalDate inicio,
+                                     @Param("fim") LocalDate fim,
+                                     @Param("perfilId") Long perfilId);
 
-    List<Parcelas> findByEmprestimo(Emprestimo emprestimo);
+    List<Parcelas> findByEmprestimoAndPerfilId(Emprestimo emprestimo, Long perfilId);
 
     @Query("""
         SELECT p
@@ -86,10 +92,10 @@ public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
         JOIN FETCH e.cliente c
         WHERE p.dataVencimento < :hoje
           AND p.status IN :statuses
+          AND p.perfil.id = :perfilId
         ORDER BY p.dataVencimento ASC
     """)
-    List<Parcelas> findParcelasAtrasadasComCliente(
-            @Param("hoje") LocalDate hoje,
-            @Param("statuses") List<ParcelaStatus> statuses
-    );
+    List<Parcelas> findParcelasAtrasadasComCliente(@Param("hoje") LocalDate hoje,
+                                                   @Param("statuses") List<ParcelaStatus> statuses,
+                                                   @Param("perfilId") Long perfilId);
 }

@@ -5,6 +5,7 @@ import com.caio.controle_clientes.exceptions.ParcelaPagaException;
 import com.caio.controle_clientes.models.*;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
+import com.caio.controle_clientes.services.Perfil.PerfilService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,20 +17,24 @@ import java.util.List;
 @Service
 public class EmprestimoService {
 
+    private final PerfilService perfilService;
     private final EmprestimoRepositorio emprestimoRepositorio;
     private final ParcelaRepositorio parcelaRepositorio;
     private final CalculadoraEmprestimoService calculadora;
 
     public EmprestimoService(EmprestimoRepositorio emprestimoRepositorio,
                              ParcelaRepositorio parcelaRepositorio,
-                             CalculadoraEmprestimoService calculadora) {
+                             CalculadoraEmprestimoService calculadora,
+                             PerfilService perfilService) {
         this.emprestimoRepositorio = emprestimoRepositorio;
         this.parcelaRepositorio = parcelaRepositorio;
         this.calculadora = calculadora;
+        this.perfilService = perfilService;
     }
 
     @Transactional
-    public Emprestimo criarEmprestimo(Cliente cliente,
+    public Emprestimo criarEmprestimo(Long perfilId,
+                                      Cliente cliente,
                                       BigDecimal valorEmprestado,
                                       int quantidadeParcelas,
                                       BigDecimal jurosCobrado,
@@ -39,7 +44,14 @@ public class EmprestimoService {
 
         validarDadosCriacao(frequenciaPagamento, tipoContrato);
 
+        Perfil perfil = perfilService.buscarPorId(perfilId);
+
+        if (cliente.getPerfil() == null || !perfilId.equals(cliente.getPerfil().getId())) {
+            throw new RuntimeException("Cliente não pertence ao perfil informado");
+        }
+
         Emprestimo emprestimo = montarEmprestimo(
+                perfil,
                 cliente,
                 valorEmprestado,
                 quantidadeParcelas,
@@ -52,6 +64,11 @@ public class EmprestimoService {
         emprestimoRepositorio.save(emprestimo);
 
         List<Parcelas> parcelas = calculadora.gerarParcelas(emprestimo);
+        parcelas.forEach(p -> {
+            p.setEmprestimo(emprestimo);
+            p.setPerfil(perfil);
+        });
+
         emprestimo.setParcelas(parcelas);
         parcelaRepositorio.saveAll(parcelas);
 
@@ -61,21 +78,22 @@ public class EmprestimoService {
     }
 
     @Transactional
-    public void pagarParcela(Long idEmprestimo, Integer numeroParcela) {
-        Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
+    public void pagarParcela(Long perfilId, Long idEmprestimo, Integer numeroParcela) {
+        Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
 
         BigDecimal saldoRestante = safe(parcela.getValorParcela())
                 .subtract(safe(parcela.getValorPago()));
 
-        pagarParcelaParcial(idEmprestimo, numeroParcela, saldoRestante);
+        pagarParcelaParcial(perfilId, idEmprestimo, numeroParcela, saldoRestante);
     }
 
     @Transactional
-    public void pagarParcelaParcial(Long idEmprestimo,
+    public void pagarParcelaParcial(Long perfilId,
+                                    Long idEmprestimo,
                                     Integer numeroParcela,
                                     BigDecimal valorPago) {
 
-        Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
+        Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
         Emprestimo emprestimo = parcela.getEmprestimo();
 
         validarPagamentoParcela(emprestimo, parcela, valorPago);
@@ -88,30 +106,35 @@ public class EmprestimoService {
                         : ParcelaStatus.PARCIAL
         );
 
+        if (parcela.getStatus() == ParcelaStatus.PAGO || parcela.getStatus() == ParcelaStatus.PARCIAL) {
+            parcela.setDataPagamento(LocalDate.now());
+        }
+
         parcelaRepositorio.save(parcela);
         atualizarFinanceiroEmprestimo(emprestimo, valorPago);
     }
 
     @Transactional(readOnly = true)
-    public List<Emprestimo> listarEmprestimosCliente(Cliente cliente) {
-        return emprestimoRepositorio.findAllByCliente(cliente);
+    public List<Emprestimo> listarEmprestimosCliente(Long perfilId, Cliente cliente) {
+        validarClientePertenceAoPerfil(cliente, perfilId);
+        return emprestimoRepositorio.findAllByClienteAndPerfilId(cliente, perfilId);
     }
 
     @Transactional(readOnly = true)
-    public List<Parcelas> listarParcelas(Long idEmprestimo) {
-        return buscarEmprestimoComParcelas(idEmprestimo).getParcelas();
+    public List<Parcelas> listarParcelas(Long perfilId, Long idEmprestimo) {
+        return buscarEmprestimoComParcelas(perfilId, idEmprestimo).getParcelas();
     }
 
     @Transactional(readOnly = true)
-    public List<Parcelas> listarParcelasDoCliente(Long idCliente, Long idEmprestimo) {
-        Emprestimo emprestimo = buscarEmprestimoComParcelas(idEmprestimo);
+    public List<Parcelas> listarParcelasDoCliente(Long perfilId, Long idCliente, Long idEmprestimo) {
+        Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
         validarPertencimentoCliente(emprestimo, idCliente);
         return emprestimo.getParcelas();
     }
 
     @Transactional
-    public void deletarEmprestimo(Long idCliente, Long idEmprestimo) {
-        Emprestimo emprestimo = buscarEmprestimoPorId(idEmprestimo);
+    public void deletarEmprestimo(Long perfilId, Long idCliente, Long idEmprestimo) {
+        Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
         validarPertencimentoCliente(emprestimo, idCliente);
 
         boolean existeParcelaPaga = emprestimo.getParcelas() != null &&
@@ -127,21 +150,23 @@ public class EmprestimoService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmprestimoDetalhadoDTO> listarDetalhado(Cliente cliente) {
-        return emprestimoRepositorio.findAllByCliente(cliente)
+    public List<EmprestimoDetalhadoDTO> listarDetalhado(Long perfilId, Cliente cliente) {
+        validarClientePertenceAoPerfil(cliente, perfilId);
+
+        return emprestimoRepositorio.findAllByClienteAndPerfilId(cliente, perfilId)
                 .stream()
                 .map(this::toDetalhadoDTO)
                 .toList();
     }
 
     @Transactional
-    public void refinanciarEmprestimo(Long idCliente, Long idEmprestimo) {
-        finalizarEmprestimo(idCliente, idEmprestimo, EmprestimoStatus.REFINANCIADO, true);
+    public void refinanciarEmprestimo(Long perfilId, Long idCliente, Long idEmprestimo) {
+        finalizarEmprestimo(perfilId, idCliente, idEmprestimo, EmprestimoStatus.REFINANCIADO, true);
     }
 
     @Transactional
-    public void quitarEmprestimo(Long idCliente, Long idEmprestimo) {
-        finalizarEmprestimo(idCliente, idEmprestimo, EmprestimoStatus.QUITADO, false);
+    public void quitarEmprestimo(Long perfilId, Long idCliente, Long idEmprestimo) {
+        finalizarEmprestimo(perfilId, idCliente, idEmprestimo, EmprestimoStatus.QUITADO, false);
     }
 
     private void validarDadosCriacao(FrequenciaPagamento frequenciaPagamento,
@@ -155,7 +180,8 @@ public class EmprestimoService {
         }
     }
 
-    private Emprestimo montarEmprestimo(Cliente cliente,
+    private Emprestimo montarEmprestimo(Perfil perfil,
+                                        Cliente cliente,
                                         BigDecimal valorEmprestado,
                                         int quantidadeParcelas,
                                         BigDecimal jurosCobrado,
@@ -174,6 +200,7 @@ public class EmprestimoService {
                 .setScale(2, RoundingMode.HALF_UP);
 
         Emprestimo emprestimo = new Emprestimo();
+        emprestimo.setPerfil(perfil);
         emprestimo.setCliente(cliente);
         emprestimo.setValorEmprestado(valorEmprestado);
         emprestimo.setQuantidadeParcelas(quantidadeParcelas);
@@ -242,12 +269,13 @@ public class EmprestimoService {
         emprestimoRepositorio.save(emprestimo);
     }
 
-    private void finalizarEmprestimo(Long idCliente,
+    private void finalizarEmprestimo(Long perfilId,
+                                     Long idCliente,
                                      Long idEmprestimo,
                                      EmprestimoStatus statusFinal,
                                      boolean validarRefinanciado) {
 
-        Emprestimo emprestimo = buscarEmprestimoComParcelas(idEmprestimo);
+        Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
         validarPertencimentoCliente(emprestimo, idCliente);
 
         if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
@@ -334,18 +362,24 @@ public class EmprestimoService {
         }
     }
 
-    private Emprestimo buscarEmprestimoPorId(Long idEmprestimo) {
-        return emprestimoRepositorio.findById(idEmprestimo)
+    private void validarClientePertenceAoPerfil(Cliente cliente, Long perfilId) {
+        if (cliente.getPerfil() == null || !perfilId.equals(cliente.getPerfil().getId())) {
+            throw new RuntimeException("Cliente não pertence ao perfil informado");
+        }
+    }
+
+    private Emprestimo buscarEmprestimoPorId(Long perfilId, Long idEmprestimo) {
+        return emprestimoRepositorio.findByIdAndPerfilId(idEmprestimo, perfilId)
                 .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
     }
 
-    private Emprestimo buscarEmprestimoComParcelas(Long idEmprestimo) {
-        return emprestimoRepositorio.buscarComParcelas(idEmprestimo)
+    private Emprestimo buscarEmprestimoComParcelas(Long perfilId, Long idEmprestimo) {
+        return emprestimoRepositorio.buscarComParcelas(idEmprestimo, perfilId)
                 .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
     }
 
-    private Parcelas buscarParcela(Long idEmprestimo, Integer numeroParcela) {
-        return parcelaRepositorio.findByEmprestimoIdAndNumeroParcela(idEmprestimo, numeroParcela)
+    private Parcelas buscarParcela(Long perfilId, Long idEmprestimo, Integer numeroParcela) {
+        return parcelaRepositorio.findByEmprestimoIdAndPerfilIdAndNumeroParcela(idEmprestimo, perfilId, numeroParcela)
                 .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
     }
 

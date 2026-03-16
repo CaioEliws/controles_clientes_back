@@ -20,8 +20,8 @@ public class ExportService {
 
     private final EmprestimoRepositorio emprestimoRepositorio;
 
-    public byte[] exportarExcel() throws Exception {
-        List<Emprestimo> emprestimos = emprestimoRepositorio.findAll();
+    public byte[] exportarExcel(Long perfilId) throws Exception {
+        List<Emprestimo> emprestimos = emprestimoRepositorio.findAllByPerfilId(perfilId);
 
         try (Workbook wb = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -36,10 +36,10 @@ public class ExportService {
                     "Pagamento",
                     "Valor empréstimo",
                     "Qtde parcelas",
-                    "Qtde parcelas  pagas",
+                    "Qtde parcelas pagas",
                     "Qtde parcelas a vencer",
                     "Valor a receber",
-                    "Valor Recebido",
+                    "Valor recebido",
                     "Juros cobrado",
                     "Valor total empréstimos",
                     "Valor parcela",
@@ -51,6 +51,7 @@ public class ExportService {
 
             Row headerRow = sheet.createRow(0);
             CellStyle headerStyle = createHeaderStyle(wb);
+
             for (int i = 0; i < headers.length; i++) {
                 Cell c = headerRow.createCell(i);
                 c.setCellValue(headers[i]);
@@ -61,8 +62,10 @@ public class ExportService {
             CellStyle percentStyle = createPercentStyle(wb);
             CellStyle dateStyle = createDateStyle(wb);
 
-            emprestimos.sort(Comparator.comparing(Emprestimo::getDataDoEmprestimo,
-                    Comparator.nullsLast(Comparator.naturalOrder())));
+            emprestimos.sort(Comparator.comparing(
+                    Emprestimo::getDataDoEmprestimo,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            ));
 
             int rowIdx = 1;
 
@@ -72,8 +75,11 @@ public class ExportService {
                 int totalParcelas = safeInt(e.getQuantidadeParcelas());
 
                 List<Parcelas> parcelas = e.getParcelas();
+
                 long pagas = parcelas == null ? 0 :
-                        parcelas.stream().filter(p -> p.getStatus() == ParcelaStatus.PAGO).count();
+                        parcelas.stream()
+                                .filter(p -> p.getStatus() == ParcelaStatus.PAGO)
+                                .count();
 
                 long aVencer = Math.max(0, totalParcelas - pagas);
 
@@ -95,41 +101,30 @@ public class ExportService {
                 Row r = sheet.createRow(rowIdx++);
 
                 setDate(r, 0, e.getDataDoEmprestimo(), dateStyle);
-
                 r.createCell(1).setCellValue(cliente != null ? safeStr(cliente.getNome()) : "");
-
                 r.createCell(2).setCellValue(cliente != null ? safeStr(cliente.getNomeIndicador()) : "");
-
                 r.createCell(3).setCellValue(e.getFormaPagamento() != null ? e.getFormaPagamento().name() : "");
-
-                r.createCell(4).setCellValue(e.getFrequenciaPagamento() != null
-                        ? toLabelFrequencia(e.getFrequenciaPagamento())
-                        : "Mensal");
+                r.createCell(4).setCellValue(
+                        e.getFrequenciaPagamento() != null
+                                ? toLabelFrequencia(e.getFrequenciaPagamento())
+                                : "Mensal"
+                );
 
                 setMoney(r, 5, safeBd(e.getValorEmprestado()), moneyStyle);
-
                 r.createCell(6).setCellValue(totalParcelas);
-
                 r.createCell(7).setCellValue((double) pagas);
-
                 r.createCell(8).setCellValue((double) aVencer);
-
                 setMoney(r, 9, valorAReceber, moneyStyle);
-
                 setMoney(r, 10, valorRecebido, moneyStyle);
 
                 BigDecimal taxa = safeBd(e.getTaxaDeJuros());
-
-                double taxaPercentual = taxa
-                        .divide(BigDecimal.valueOf(100))
-                        .doubleValue();
+                double taxaPercentual = taxa.divide(BigDecimal.valueOf(100)).doubleValue();
 
                 Cell jurosCell = r.createCell(11);
                 jurosCell.setCellValue(taxaPercentual);
                 jurosCell.setCellStyle(percentStyle);
 
                 setMoney(r, 12, safeBd(e.getValorTotalEmprestimo()), moneyStyle);
-
                 setMoney(r, 13, safeBd(e.getValorParcela()), moneyStyle);
 
                 Cell txCell = r.createCell(14);
@@ -137,10 +132,10 @@ public class ExportService {
                 txCell.setCellStyle(percentStyle);
 
                 setDate(r, 15, e.getInicioPagamento(), dateStyle);
-
                 setDate(r, 16, e.getFinalPagamento(), dateStyle);
-
-                r.createCell(17).setCellValue(e.getEmprestimoStatus() != null ? e.getEmprestimoStatus().name() : "");
+                r.createCell(17).setCellValue(
+                        e.getEmprestimoStatus() != null ? e.getEmprestimoStatus().name() : ""
+                );
             }
 
             for (int i = 0; i < headers.length; i++) {
@@ -169,7 +164,9 @@ public class ExportService {
 
     private static void setDate(Row r, int col, LocalDate date, CellStyle style) {
         Cell c = r.createCell(col);
-        if (date == null) return;
+        if (date == null) {
+            return;
+        }
         c.setCellValue(Date.valueOf(date));
         c.setCellStyle(style);
     }
@@ -200,6 +197,13 @@ public class ExportService {
         return style;
     }
 
+    private static CellStyle createPercentStyle(Workbook wb) {
+        CellStyle style = wb.createCellStyle();
+        DataFormat format = wb.createDataFormat();
+        style.setDataFormat(format.getFormat("0.00%"));
+        return style;
+    }
+
     private static BigDecimal safeBd(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
     }
@@ -210,12 +214,5 @@ public class ExportService {
 
     private static String safeStr(String s) {
         return s == null ? "" : s;
-    }
-
-    private static CellStyle createPercentStyle(Workbook wb) {
-        CellStyle style = wb.createCellStyle();
-        DataFormat format = wb.createDataFormat();
-        style.setDataFormat(format.getFormat("0.00%"));
-        return style;
     }
 }

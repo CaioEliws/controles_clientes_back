@@ -26,8 +26,10 @@ public class RelatorioService {
         this.parcelaRepositorio = parcelaRepositorio;
     }
 
-    public HistoricoClienteDTO gerarHistoricoCliente(Cliente cliente) {
-        List<Emprestimo> emprestimos = emprestimoRepositorio.findByCliente(cliente);
+    public HistoricoClienteDTO gerarHistoricoCliente(Long perfilId, Cliente cliente) {
+
+        List<Emprestimo> emprestimos =
+                emprestimoRepositorio.findAllByClienteAndPerfilId(cliente, perfilId);
 
         BigDecimal totalEmprestado = BigDecimal.ZERO;
         BigDecimal totalPago = BigDecimal.ZERO;
@@ -39,13 +41,16 @@ public class RelatorioService {
         int totalParcelas = 0;
 
         for (Emprestimo e : emprestimos) {
+
             totalEmprestado = totalEmprestado.add(e.getValorEmprestado());
 
-            List<Parcelas> parcelas = parcelaRepositorio.findByEmprestimo(e);
+            List<Parcelas> parcelas =
+                    parcelaRepositorio.findByEmprestimoAndPerfilId(e, perfilId);
 
             totalParcelas += parcelas.size();
 
             for (Parcelas p : parcelas) {
+
                 if (p.getStatus() == ParcelaStatus.PAGO) {
                     totalPago = totalPago.add(p.getValorParcela());
                     parcelasPagas++;
@@ -75,11 +80,13 @@ public class RelatorioService {
         );
     }
 
-    public List<InadimplenteDTO> gerarRelatorioInadimplentes() {
+    public List<InadimplenteDTO> gerarRelatorioInadimplentes(Long perfilId) {
+
         List<Parcelas> parcelasAtrasadas =
                 parcelaRepositorio.findParcelasAtrasadasComCliente(
                         LocalDate.now(),
-                        List.of(ParcelaStatus.ATRASADO, ParcelaStatus.PARCIAL)
+                        List.of(ParcelaStatus.ATRASADO, ParcelaStatus.PARCIAL),
+                        perfilId
                 );
 
         if (parcelasAtrasadas.isEmpty()) {
@@ -91,13 +98,16 @@ public class RelatorioService {
                 .entrySet()
                 .stream()
                 .map(entry -> {
+
                     Cliente cliente = entry.getKey();
                     List<Parcelas> parcelasCliente = entry.getValue();
 
                     BigDecimal totalEmAtraso =
                             parcelasCliente.stream()
                                     .map(p -> p.getValorParcela().subtract(
-                                            p.getValorPago() == null ? BigDecimal.ZERO : p.getValorPago()
+                                            p.getValorPago() == null
+                                                    ? BigDecimal.ZERO
+                                                    : p.getValorPago()
                                     ))
                                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 

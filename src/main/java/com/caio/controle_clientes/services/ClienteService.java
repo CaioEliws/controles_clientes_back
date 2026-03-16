@@ -1,8 +1,10 @@
 package com.caio.controle_clientes.services;
 
 import com.caio.controle_clientes.models.Cliente;
+import com.caio.controle_clientes.models.Perfil;
 import com.caio.controle_clientes.repository.ClienteRepositorio;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
+import com.caio.controle_clientes.services.Perfil.PerfilService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -10,33 +12,41 @@ import java.util.List;
 
 @Service
 public class ClienteService {
+
     private final ClienteRepositorio clienteRepositorio;
     private final EmprestimoRepositorio emprestimoRepositorio;
+    private final PerfilService perfilService;
 
     public ClienteService(ClienteRepositorio clienteRepositorio,
-                          EmprestimoRepositorio emprestimoRepositorio) {
+                          EmprestimoRepositorio emprestimoRepositorio,
+                          PerfilService perfilService) {
         this.clienteRepositorio = clienteRepositorio;
         this.emprestimoRepositorio = emprestimoRepositorio;
+        this.perfilService = perfilService;
     }
 
-    public Cliente buscarPorNome(String nome) {
+    public Cliente buscarPorNome(Long perfilId, String nome) {
         return clienteRepositorio
-                .findByNomeIgnoreCase(nome)
+                .findByNomeIgnoreCaseAndPerfilId(nome, perfilId)
                 .orElseThrow(() -> new RuntimeException("Cliente não encontrado!"));
     }
 
-    public void criarCliente(String nome,
+    public void criarCliente(Long perfilId,
+                             String nome,
                              String indicador,
                              String enderecoRua,
                              String enderecoBairro,
                              Integer enderecoNumero) {
-        boolean  existe = clienteRepositorio
-                .findByNomeIgnoreCase(nome)
+
+        boolean existe = clienteRepositorio
+                .findByNomeIgnoreCaseAndPerfilId(nome, perfilId)
                 .isPresent();
 
         if (existe) {
             throw new RuntimeException("Cliente já existe!");
         }
+
+        Perfil perfil = perfilService.buscarPorId(perfilId);
 
         Cliente cliente = new Cliente();
         cliente.setNome(nome);
@@ -44,19 +54,19 @@ public class ClienteService {
         cliente.setEnderecoRua(enderecoRua);
         cliente.setEnderecoBairro(enderecoBairro);
         cliente.setEnderecoNumero(enderecoNumero);
-        cliente.setEnderecoNumero(enderecoNumero);
+        cliente.setPerfil(perfil);
 
         clienteRepositorio.save(cliente);
     }
 
-    public void updateNameCliente(Long id, String nome) {
-        Cliente cliente = getClienteById(id);
+    public void updateNameCliente(Long perfilId, Long id, String nome) {
+        Cliente cliente = getClienteById(perfilId, id);
         cliente.setNome(nome);
         clienteRepositorio.save(cliente);
     }
 
-    public void updateEnderecoCliente(Long id, String rua, String bairro, Integer numero) {
-        Cliente cliente = getClienteById(id);
+    public void updateEnderecoCliente(Long perfilId, Long id, String rua, String bairro, Integer numero) {
+        Cliente cliente = getClienteById(perfilId, id);
 
         cliente.setEnderecoRua(rua);
         cliente.setEnderecoBairro(bairro);
@@ -66,12 +76,12 @@ public class ClienteService {
     }
 
     @Transactional
-    public void deletarCliente(Long clienteId) {
-        Cliente cliente = clienteRepositorio.findById(clienteId)
+    public void deletarCliente(Long perfilId, Long clienteId) {
+        Cliente cliente = clienteRepositorio.findByIdAndPerfilId(clienteId, perfilId)
                 .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
 
         boolean possuiEmprestimos =
-                emprestimoRepositorio.existsByClienteId(clienteId);
+                emprestimoRepositorio.existsByClienteIdAndPerfilId(clienteId, perfilId);
 
         if (possuiEmprestimos) {
             throw new RuntimeException(
@@ -82,13 +92,12 @@ public class ClienteService {
         clienteRepositorio.delete(cliente);
     }
 
-    public Cliente getClienteById(Long id) {
-        return clienteRepositorio.findById(id)
+    public Cliente getClienteById(Long perfilId, Long id) {
+        return clienteRepositorio.findByIdAndPerfilId(id, perfilId)
                 .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
     }
 
-    public List<Cliente> listarTodos() {
-        return clienteRepositorio.findAll();
+    public List<Cliente> listarTodos(Long perfilId) {
+        return clienteRepositorio.findAllByPerfilId(perfilId);
     }
-
 }

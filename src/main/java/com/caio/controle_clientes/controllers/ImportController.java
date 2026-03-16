@@ -1,13 +1,13 @@
 package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.services.ImportService;
+import com.caio.controle_clientes.services.importService.dto.ImportacaoResultado;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/import")
@@ -16,24 +16,28 @@ public class ImportController {
 
     private final ImportService importService;
 
-    @PostMapping
-    public ResponseEntity<Map<String, String>> importar(@RequestParam("file") MultipartFile file) {
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ImportacaoResultado> importar(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestParam("file") MultipartFile file
+    ) {
 
-        Map<String, String> response = new HashMap<>();
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    new ImportacaoResultado(0, 0, 0, 0, java.util.List.of())
+            );
+        }
 
         try {
+            ImportacaoResultado resultado =
+                    importService.importarPlanilha(perfilId, file.getInputStream());
 
-            importService.importarPlanilha(file.getInputStream());
-
-            response.put("message", "Importação concluída com sucesso.");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
 
         } catch (Exception e) {
-
-            e.printStackTrace();
-
-            response.put("error", "Erro ao importar arquivo.");
-            return ResponseEntity.internalServerError().body(response);
+            return ResponseEntity.internalServerError().body(
+                    new ImportacaoResultado(0, 0, 0, 0, java.util.List.of())
+            );
         }
     }
 }

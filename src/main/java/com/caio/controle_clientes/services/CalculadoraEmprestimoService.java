@@ -89,6 +89,7 @@ public class CalculadoraEmprestimoService {
         parcela.setStatus(ParcelaStatus.PENDENTE);
         parcela.setValorPago(BigDecimal.ZERO);
         parcela.setEmprestimo(emprestimo);
+        parcela.setPerfil(emprestimo.getPerfil());
         return parcela;
     }
 
@@ -97,18 +98,18 @@ public class CalculadoraEmprestimoService {
 
         return switch (freq) {
             case DIARIO -> ajustarSeDomingo(base.plusDays(1));
-            case SEMANAL -> base.plusWeeks(1);
-            case QUINZENAL -> base.plusDays(15);
-            case MENSAL -> base.plusMonths(1);
+            case SEMANAL -> ajustarSeDomingo(base.plusWeeks(1));
+            case QUINZENAL -> ajustarSeDomingo(base.plusDays(15));
+            case MENSAL -> ajustarSeDomingo(base.plusMonths(1));
         };
     }
 
     private LocalDate proximoVencimento(LocalDate atual, FrequenciaPagamento freq) {
         return switch (freq) {
             case DIARIO -> ajustarSeDomingo(atual.plusDays(1));
-            case SEMANAL -> atual.plusWeeks(1);
-            case QUINZENAL -> atual.plusDays(15);
-            case MENSAL -> atual.plusMonths(1);
+            case SEMANAL -> ajustarSeDomingo(atual.plusWeeks(1));
+            case QUINZENAL -> ajustarSeDomingo(atual.plusDays(15));
+            case MENSAL -> ajustarSeDomingo(atual.plusMonths(1));
         };
     }
 

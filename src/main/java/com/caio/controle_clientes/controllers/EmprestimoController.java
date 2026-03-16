@@ -7,6 +7,7 @@ import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.Parcelas;
 import com.caio.controle_clientes.services.ClienteService;
 import com.caio.controle_clientes.services.EmprestimoService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,24 +16,22 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/clientes/{idCliente}/emprestimos")
+@RequiredArgsConstructor
 public class EmprestimoController {
+
     private final EmprestimoService emprestimoService;
     private final ClienteService clienteService;
 
-    public EmprestimoController(EmprestimoService emprestimoService,
-                                ClienteService clienteService) {
-        this.emprestimoService = emprestimoService;
-        this.clienteService = clienteService;
-    }
-
     @PostMapping
     public ResponseEntity<Void> criarEmprestimo(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long idCliente,
             @RequestBody EmprestimoCreateDTO dto
     ) {
-        Cliente cliente = clienteService.getClienteById(idCliente);
+        Cliente cliente = clienteService.getClienteById(perfilId, idCliente);
 
         emprestimoService.criarEmprestimo(
+                perfilId,
                 cliente,
                 dto.valorEmprestado(),
                 dto.quantidadeParcelas(),
@@ -46,49 +45,61 @@ public class EmprestimoController {
     }
 
     @GetMapping
-    public List<Emprestimo> listar(@PathVariable Long idCliente) {
-        Cliente cliente = clienteService.getClienteById(idCliente);
-        return emprestimoService.listarEmprestimosCliente(cliente);
+    public ResponseEntity<List<Emprestimo>> listar(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long idCliente
+    ) {
+        Cliente cliente = clienteService.getClienteById(perfilId, idCliente);
+        return ResponseEntity.ok(emprestimoService.listarEmprestimosCliente(perfilId, cliente));
     }
 
     @GetMapping("/{idEmprestimo}/parcelas")
-    public List<Parcelas> listarParcelas(
+    public ResponseEntity<List<Parcelas>> listarParcelas(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long idCliente,
             @PathVariable Long idEmprestimo
     ) {
-        return emprestimoService.listarParcelasDoCliente(idCliente, idEmprestimo);
+        return ResponseEntity.ok(
+                emprestimoService.listarParcelasDoCliente(perfilId, idCliente, idEmprestimo)
+        );
     }
 
     @DeleteMapping("/{idEmprestimo}")
     public ResponseEntity<Void> deletar(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long idCliente,
             @PathVariable Long idEmprestimo
     ) {
-        emprestimoService.deletarEmprestimo(idCliente, idEmprestimo);
+        emprestimoService.deletarEmprestimo(perfilId, idCliente, idEmprestimo);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/detalhes")
-    public List<EmprestimoDetalhadoDTO> listarDetalhado(@PathVariable Long idCliente) {
-        Cliente cliente = clienteService.getClienteById(idCliente);
-        return emprestimoService.listarDetalhado(cliente);
+    public ResponseEntity<List<EmprestimoDetalhadoDTO>> listarDetalhado(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long idCliente
+    ) {
+        Cliente cliente = clienteService.getClienteById(perfilId, idCliente);
+        return ResponseEntity.ok(emprestimoService.listarDetalhado(perfilId, cliente));
     }
 
     @PostMapping("/{idEmprestimo}/refinanciar")
     public ResponseEntity<Void> refinanciar(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long idCliente,
             @PathVariable Long idEmprestimo
     ) {
-        emprestimoService.refinanciarEmprestimo(idCliente, idEmprestimo);
+        emprestimoService.refinanciarEmprestimo(perfilId, idCliente, idEmprestimo);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{idEmprestimo}/quitar")
     public ResponseEntity<Void> quitar(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long idCliente,
             @PathVariable Long idEmprestimo
     ) {
-        emprestimoService.quitarEmprestimo(idCliente, idEmprestimo);
+        emprestimoService.quitarEmprestimo(perfilId, idCliente, idEmprestimo);
         return ResponseEntity.ok().build();
     }
 }

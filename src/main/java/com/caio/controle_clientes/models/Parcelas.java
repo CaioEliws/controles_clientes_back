@@ -41,6 +41,12 @@ public class Parcelas {
     @Setter
     private LocalDate dataPagamento;
 
+    @Getter
+    @Setter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perfil_id", nullable = false)
+    private Perfil perfil;
+
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emprestimo_id", nullable = false)

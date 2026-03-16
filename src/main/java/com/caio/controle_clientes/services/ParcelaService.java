@@ -16,6 +16,7 @@ import java.util.List;
 
 @Service
 public class ParcelaService {
+
     private final ParcelaRepositorio parcelaRepositorio;
     private final EmprestimoRepositorio emprestimoRepositorio;
 
@@ -26,17 +27,21 @@ public class ParcelaService {
     }
 
     @Transactional
-    public void atualizarParcelasAtrasadas() {
+    public void atualizarParcelasAtrasadas(Long perfilId) {
         LocalDate hoje = LocalDate.now();
 
         List<Parcelas> pendentesAtrasadas =
-                parcelaRepositorio.findByStatusAndDataVencimentoBefore(
-                        ParcelaStatus.PENDENTE, hoje
+                parcelaRepositorio.findByStatusAndPerfilIdAndDataVencimentoBefore(
+                        ParcelaStatus.PENDENTE,
+                        perfilId,
+                        hoje
                 );
 
         List<Parcelas> parciaisAtrasadas =
-                parcelaRepositorio.findByStatusAndDataVencimentoBefore(
-                        ParcelaStatus.PARCIAL, hoje
+                parcelaRepositorio.findByStatusAndPerfilIdAndDataVencimentoBefore(
+                        ParcelaStatus.PARCIAL,
+                        perfilId,
+                        hoje
                 );
 
         pendentesAtrasadas.forEach(p -> p.setStatus(ParcelaStatus.ATRASADO));
@@ -50,12 +55,13 @@ public class ParcelaService {
     }
 
     @Transactional
-    public void alterarParcela(Long idEmprestimo,
+    public void alterarParcela(Long perfilId,
+                               Long idEmprestimo,
                                Integer numeroParcela,
                                LocalDate novaData,
                                BigDecimal novoValor) {
 
-        Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
+        Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
         Emprestimo emprestimo = parcela.getEmprestimo();
 
         if (parcela.getStatus() == ParcelaStatus.PAGO) {
@@ -95,11 +101,12 @@ public class ParcelaService {
     }
 
     @Transactional
-    public void alterarDataVencimento(Long idEmprestimo,
+    public void alterarDataVencimento(Long perfilId,
+                                      Long idEmprestimo,
                                       Integer numeroParcela,
                                       LocalDate novaData) {
 
-        Parcelas parcela = buscarParcela(idEmprestimo, numeroParcela);
+        Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
 
         if (parcela.getStatus() == ParcelaStatus.PAGO) {
             throw new RuntimeException("Parcela já paga");
@@ -180,9 +187,16 @@ public class ParcelaService {
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private Parcelas buscarParcela(Long idEmprestimo, Integer numeroParcela) {
+    private Parcelas buscarParcela(Long perfilId,
+                                   Long idEmprestimo,
+                                   Integer numeroParcela) {
+
         return parcelaRepositorio
-                .findByEmprestimoIdAndNumeroParcela(idEmprestimo, numeroParcela)
+                .findByEmprestimoIdAndPerfilIdAndNumeroParcela(
+                        idEmprestimo,
+                        perfilId,
+                        numeroParcela
+                )
                 .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
     }
 

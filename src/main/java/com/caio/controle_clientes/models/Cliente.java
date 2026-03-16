@@ -3,6 +3,7 @@ package com.caio.controle_clientes.models;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -27,6 +28,11 @@ public class Cliente {
 
     private LocalDate criadoEm = LocalDate.now();
 
+    @Getter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perfil_id", nullable = false)
+    private Perfil perfil;
+
     @JsonIgnore
     @OneToMany(mappedBy = "cliente",
             cascade = CascadeType.ALL)
@@ -41,66 +47,6 @@ public class Cliente {
         this.nome = nome;
         this.nomeIndicador = nomeIndicador;
         this.criadoEm = criadoEm;
-        this.emprestimos = emprestimos;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getEnderecoRua() {
-        return enderecoRua;
-    }
-
-    public void setEnderecoRua(String enderecoRua) {
-        this.enderecoRua = enderecoRua;
-    }
-
-    public String getEnderecoBairro() {
-        return enderecoBairro;
-    }
-
-    public void setEnderecoBairro(String enderecoBairro) {
-        this.enderecoBairro = enderecoBairro;
-    }
-
-    public Integer getEnderecoNumero() {
-        return enderecoNumero;
-    }
-
-    public void setEnderecoNumero(Integer enderecoNumero) {
-        this.enderecoNumero = enderecoNumero;
-    }
-
-    public String getNome() {
-        return nome;
-    }
-
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
-
-    public String getNomeIndicador() {
-        return nomeIndicador;
-    }
-
-    public void setNomeIndicador(String nomeIndicador) {
-        this.nomeIndicador = nomeIndicador;
-    }
-
-    public LocalDate getCriadoEm() {
-        return criadoEm;
-    }
-
-    public void setCriadoEm(LocalDate criadoEm) {
-        this.criadoEm = criadoEm;
-    }
-
-    public List<Emprestimo> getEmprestimos() {
-        return emprestimos;
-    }
-
-    public void setEmprestimos(List<Emprestimo> emprestimos) {
         this.emprestimos = emprestimos;
     }
 }

@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/clientes")
 public class ClientController {
+
     private final ClienteService clienteService;
 
     public ClientController(ClienteService clienteService) {
@@ -21,39 +22,60 @@ public class ClientController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> criarCliente(@RequestBody ClienteCreateDTO dto) {
-        clienteService.criarCliente(dto.nome(), dto.nomeIndicador(), dto.enderecoRua(), dto.enderecoBairro(), dto.enderecoNumero());
+    public ResponseEntity<Void> criarCliente(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestBody ClienteCreateDTO dto
+    ) {
+        clienteService.criarCliente(
+                perfilId,
+                dto.nome(),
+                dto.nomeIndicador(),
+                dto.enderecoRua(),
+                dto.enderecoBairro(),
+                dto.enderecoNumero()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletarCliente(@PathVariable Long id) {
-        clienteService.deletarCliente(id);
+    public ResponseEntity<Void> deletarCliente(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long id
+    ) {
+        clienteService.deletarCliente(perfilId, id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/name")
     public ResponseEntity<Void> updateName(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long id,
             @RequestBody UpdateNomeClienteDTO dto
     ) {
-        clienteService.updateNameCliente(id, dto.getNome());
+        clienteService.updateNameCliente(perfilId, id, dto.getNome());
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/endereco")
-    public void updateEndereco(@PathVariable Long id, @RequestBody UpdateEnderecoDTO dto) {
+    public ResponseEntity<Void> updateEndereco(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long id,
+            @RequestBody UpdateEnderecoDTO dto
+    ) {
         clienteService.updateEnderecoCliente(
+                perfilId,
                 id,
                 dto.getRua(),
                 dto.getBairro(),
                 dto.getNumero()
         );
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping
-    public ResponseEntity<List<Cliente>> listarClientes() {
-        return ResponseEntity.ok(clienteService.listarTodos());
+    public ResponseEntity<List<Cliente>> listarClientes(
+            @RequestHeader("X-Perfil-Id") Long perfilId
+    ) {
+        return ResponseEntity.ok(clienteService.listarTodos(perfilId));
     }
-
 }
