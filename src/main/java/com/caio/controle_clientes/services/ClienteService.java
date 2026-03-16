@@ -4,7 +4,7 @@ import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.models.Perfil;
 import com.caio.controle_clientes.repository.ClienteRepositorio;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
-import com.caio.controle_clientes.services.Perfil.PerfilService;
+import com.caio.controle_clientes.services.perfil.PerfilService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 

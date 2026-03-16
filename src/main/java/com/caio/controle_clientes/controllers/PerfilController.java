@@ -2,7 +2,7 @@ package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.dto.Perfil.CriarPerfilRequest;
 import com.caio.controle_clientes.dto.Perfil.PerfilResponse;
-import com.caio.controle_clientes.services.Perfil.PerfilService;
+import com.caio.controle_clientes.services.perfil.PerfilService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

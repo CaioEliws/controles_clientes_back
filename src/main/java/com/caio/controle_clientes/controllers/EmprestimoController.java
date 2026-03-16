@@ -1,7 +1,7 @@
 package com.caio.controle_clientes.controllers;
 
-import com.caio.controle_clientes.dto.EmprestimoCreateDTO;
-import com.caio.controle_clientes.dto.EmprestimoDetalhadoDTO;
+import com.caio.controle_clientes.dto.emprestimo.EmprestimoCreateDTO;
+import com.caio.controle_clientes.dto.emprestimo.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.Parcelas;

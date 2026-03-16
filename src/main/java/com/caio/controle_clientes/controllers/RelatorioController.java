@@ -1,6 +1,6 @@
 package com.caio.controle_clientes.controllers;
 
-import com.caio.controle_clientes.dto.InadimplenteDTO;
+import com.caio.controle_clientes.dto.cliente.InadimplenteDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.services.ClienteService;
 import com.caio.controle_clientes.services.RelatorioService;

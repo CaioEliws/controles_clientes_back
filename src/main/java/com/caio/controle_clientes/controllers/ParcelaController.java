@@ -1,13 +1,10 @@
 package com.caio.controle_clientes.controllers;
 
-import com.caio.controle_clientes.dto.AlterarParcelaDTO;
-import com.caio.controle_clientes.dto.PagarParcelaDTO;
-import com.caio.controle_clientes.dto.PagarParcelaParcialDTO;
-import com.caio.controle_clientes.dto.ParcelaResponseDTO;
+import com.caio.controle_clientes.dto.parcela.*;
 import com.caio.controle_clientes.models.ParcelaStatus;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
 import com.caio.controle_clientes.services.EmprestimoService;
-import com.caio.controle_clientes.services.ParcelaService;
+import com.caio.controle_clientes.services.parcela.ParcelaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

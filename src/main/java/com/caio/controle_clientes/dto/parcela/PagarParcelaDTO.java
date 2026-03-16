@@ -1,6 +1,4 @@
-package com.caio.controle_clientes.dto;
-
-import java.math.BigDecimal;
+package com.caio.controle_clientes.dto.parcela;
 
 public record PagarParcelaDTO(
         Long idEmprestimo,

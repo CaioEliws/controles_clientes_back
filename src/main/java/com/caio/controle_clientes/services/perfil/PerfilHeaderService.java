@@ -1,4 +1,4 @@
-package com.caio.controle_clientes.services.Perfil;
+package com.caio.controle_clientes.services.perfil;
 
 import com.caio.controle_clientes.models.Perfil;
 import org.springframework.stereotype.Service;

@@ -56,6 +56,9 @@ public class Parcelas {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal valorPago = BigDecimal.ZERO;
 
+    @OneToMany(mappedBy = "parcela", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<ParcelaObservacao> observacoes = new java.util.ArrayList<>();
+
     public Parcelas() {}
 
     public Parcelas(Integer numeroParcela,

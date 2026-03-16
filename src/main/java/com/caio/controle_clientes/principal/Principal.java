@@ -1,18 +1,6 @@
 package com.caio.controle_clientes.principal;
 
-import com.caio.controle_clientes.dto.InadimplenteDTO;
-import com.caio.controle_clientes.exceptions.EmprestimoQuitadoException;
-import com.caio.controle_clientes.exceptions.ParcelaPagaException;
-import com.caio.controle_clientes.models.*;
-import com.caio.controle_clientes.repository.ParcelaRepositorio;
-import com.caio.controle_clientes.services.*;
 import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.Scanner;
 
 @Component
 public class Principal {

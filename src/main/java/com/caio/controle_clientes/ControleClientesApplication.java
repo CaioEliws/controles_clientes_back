@@ -1,10 +1,9 @@
 package com.caio.controle_clientes;
 
 import com.caio.controle_clientes.principal.Principal;
-import com.caio.controle_clientes.repository.ClienteRepositorio;
-import com.caio.controle_clientes.repository.EmprestimoRepositorio;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
 import com.caio.controle_clientes.services.*;
+import com.caio.controle_clientes.services.parcela.ParcelaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;

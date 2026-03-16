@@ -1,8 +1,8 @@
 package com.caio.controle_clientes.controllers;
 
-import com.caio.controle_clientes.dto.ClienteCreateDTO;
-import com.caio.controle_clientes.dto.UpdateEnderecoDTO;
-import com.caio.controle_clientes.dto.UpdateNomeClienteDTO;
+import com.caio.controle_clientes.dto.cliente.ClienteCreateDTO;
+import com.caio.controle_clientes.dto.cliente.UpdateEnderecoDTO;
+import com.caio.controle_clientes.dto.cliente.UpdateNomeClienteDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.services.ClienteService;
 import org.springframework.http.HttpStatus;

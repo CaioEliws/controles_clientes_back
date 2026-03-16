@@ -1,4 +1,4 @@
-package com.caio.controle_clientes.dto;
+package com.caio.controle_clientes.dto.cliente;
 
 public record ClienteCreateDTO(String nome,
                                String nomeIndicador,

@@ -1,7 +1,7 @@
 package com.caio.controle_clientes.services;
 
-import com.caio.controle_clientes.dto.HistoricoClienteDTO;
-import com.caio.controle_clientes.dto.InadimplenteDTO;
+import com.caio.controle_clientes.dto.cliente.HistoricoClienteDTO;
+import com.caio.controle_clientes.dto.cliente.InadimplenteDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.ParcelaStatus;

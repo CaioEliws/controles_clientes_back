@@ -1,6 +1,6 @@
-package com.caio.controle_clientes.services;
+package com.caio.controle_clientes.services.parcela;
 
-import com.caio.controle_clientes.dto.ParcelaResponseDTO;
+import com.caio.controle_clientes.dto.parcela.ParcelaResponseDTO;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.EmprestimoStatus;
 import com.caio.controle_clientes.models.ParcelaStatus;

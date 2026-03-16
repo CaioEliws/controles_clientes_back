@@ -1,11 +1,11 @@
 package com.caio.controle_clientes.services;
 
-import com.caio.controle_clientes.dto.EmprestimoDetalhadoDTO;
+import com.caio.controle_clientes.dto.emprestimo.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.exceptions.ParcelaPagaException;
 import com.caio.controle_clientes.models.*;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
-import com.caio.controle_clientes.services.Perfil.PerfilService;
+import com.caio.controle_clientes.services.perfil.PerfilService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

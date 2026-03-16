@@ -1,4 +1,4 @@
-package com.caio.controle_clientes.dto;
+package com.caio.controle_clientes.dto.emprestimo;
 
 import com.caio.controle_clientes.models.EmprestimoStatus;
 
