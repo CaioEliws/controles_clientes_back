@@ -48,6 +48,19 @@ public class ParcelaController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/desfazer-pagamento")
+    public ResponseEntity<Void> desfazerPagamentoParcela(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @RequestBody DesfazerPagamentoParcelaDTO dto
+    ) {
+        parcelaService.desfazerPagamentoParcela(
+                perfilId,
+                dto.idEmprestimo(),
+                dto.numeroParcela()
+        );
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
     public ResponseEntity<List<ParcelaResponseDTO>> listarPorStatus(
             @RequestHeader("X-Perfil-Id") Long perfilId,

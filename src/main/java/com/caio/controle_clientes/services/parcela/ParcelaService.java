@@ -16,7 +16,6 @@ import java.util.List;
 
 @Service
 public class ParcelaService {
-
     private final ParcelaRepositorio parcelaRepositorio;
     private final EmprestimoRepositorio emprestimoRepositorio;
 
@@ -55,6 +54,33 @@ public class ParcelaService {
     }
 
     @Transactional
+    public void desfazerPagamentoParcela(Long perfilId,
+                                         Long idEmprestimo,
+                                         Integer numeroParcela) {
+
+        Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
+        Emprestimo emprestimo = parcela.getEmprestimo();
+
+        BigDecimal valorPagoAtual = safe(parcela.getValorPago());
+
+        if (valorPagoAtual.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("A parcela não possui pagamento para desfazer");
+        }
+
+        parcela.setValorPago(BigDecimal.ZERO);
+
+        if (parcela.getDataVencimento().isBefore(LocalDate.now())) {
+            parcela.setStatus(ParcelaStatus.ATRASADO);
+        } else {
+            parcela.setStatus(ParcelaStatus.PENDENTE);
+        }
+
+        parcelaRepositorio.save(parcela);
+
+        recalcularTotaisEmprestimo(emprestimo);
+    }
+
+    @Transactional
     public void alterarParcela(Long perfilId,
                                Long idEmprestimo,
                                Integer numeroParcela,
@@ -64,16 +90,8 @@ public class ParcelaService {
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
         Emprestimo emprestimo = parcela.getEmprestimo();
 
-        if (parcela.getStatus() == ParcelaStatus.PAGO) {
-            throw new RuntimeException("Parcela já paga não pode ser alterada");
-        }
-
         if (novaData == null) {
             throw new RuntimeException("Nova data é obrigatória");
-        }
-
-        if (novaData.isBefore(LocalDate.now())) {
-            throw new RuntimeException("Data inválida");
         }
 
         if (novoValor == null) {
@@ -89,6 +107,8 @@ public class ParcelaService {
         if (novoValor.compareTo(valorPagoAtual) < 0) {
             throw new RuntimeException("Novo valor não pode ser menor que o valor já pago na parcela");
         }
+
+        validarDataAlteracao(parcela, novaData);
 
         parcela.setDataVencimento(novaData);
         parcela.setValorParcela(novoValor);
@@ -108,17 +128,11 @@ public class ParcelaService {
 
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
 
-        if (parcela.getStatus() == ParcelaStatus.PAGO) {
-            throw new RuntimeException("Parcela já paga");
-        }
-
         if (novaData == null) {
             throw new RuntimeException("Nova data é obrigatória");
         }
 
-        if (novaData.isBefore(LocalDate.now())) {
-            throw new RuntimeException("Data inválida");
-        }
+        validarDataAlteracao(parcela, novaData);
 
         parcela.setDataVencimento(novaData);
 
@@ -128,6 +142,16 @@ public class ParcelaService {
         atualizarStatusParcelaAposAlteracao(parcela, novaData, valorPagoAtual, valorParcela);
 
         parcelaRepositorio.save(parcela);
+
+        recalcularTotaisEmprestimo(parcela.getEmprestimo());
+    }
+
+    private void validarDataAlteracao(Parcelas parcela, LocalDate novaData) {
+        boolean parcelaNaoEstaPaga = parcela.getStatus() != ParcelaStatus.PAGO;
+
+        if (parcelaNaoEstaPaga && novaData.isBefore(LocalDate.now())) {
+            throw new RuntimeException("Data inválida para parcela não paga");
+        }
     }
 
     private void atualizarStatusParcelaAposAlteracao(Parcelas parcela,

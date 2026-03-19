@@ -14,7 +14,6 @@ import java.util.List;
 @RequestMapping("/perfis")
 @RequiredArgsConstructor
 public class PerfilController {
-
     private final PerfilService perfilService;
 
     @GetMapping

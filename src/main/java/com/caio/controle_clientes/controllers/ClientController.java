@@ -5,6 +5,7 @@ import com.caio.controle_clientes.dto.cliente.UpdateEnderecoDTO;
 import com.caio.controle_clientes.dto.cliente.UpdateNomeClienteDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.services.ClienteService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,8 +25,12 @@ public class ClientController {
     @PostMapping
     public ResponseEntity<Void> criarCliente(
             @RequestHeader("X-Perfil-Id") Long perfilId,
-            @RequestBody ClienteCreateDTO dto
+            @Valid @RequestBody ClienteCreateDTO dto
     ) {
+        if (perfilId == null) {
+            throw new IllegalArgumentException("Perfil ativo não informado.");
+        }
+
         clienteService.criarCliente(
                 perfilId,
                 dto.nome(),
@@ -34,6 +39,7 @@ public class ClientController {
                 dto.enderecoBairro(),
                 dto.enderecoNumero()
         );
+
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
