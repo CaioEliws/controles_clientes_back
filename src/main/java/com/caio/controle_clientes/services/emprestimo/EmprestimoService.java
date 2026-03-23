@@ -1,4 +1,4 @@
-package com.caio.controle_clientes.services;
+package com.caio.controle_clientes.services.emprestimo;
 
 import com.caio.controle_clientes.dto.emprestimo.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.exceptions.ParcelaPagaException;
@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -169,6 +170,69 @@ public class EmprestimoService {
         finalizarEmprestimo(perfilId, idCliente, idEmprestimo, EmprestimoStatus.QUITADO, false);
     }
 
+    @Transactional
+    public void reprogramarParcelas(Long perfilId,
+                                    Long idCliente,
+                                    Long idEmprestimo,
+                                    LocalDate novaDataInicial,
+                                    BigDecimal novoValorParcela) {
+
+        if (novaDataInicial == null) {
+            throw new RuntimeException("Nova data inicial é obrigatória");
+        }
+
+        if (novoValorParcela == null || novoValorParcela.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Novo valor da parcela deve ser maior que zero");
+        }
+
+        Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
+        validarPertencimentoCliente(emprestimo, idCliente);
+
+        List<Parcelas> parcelas = emprestimo.getParcelas();
+
+        if (parcelas == null || parcelas.isEmpty()) {
+            throw new RuntimeException("Empréstimo não possui parcelas");
+        }
+
+        List<Parcelas> parcelasAlteraveis = parcelas.stream()
+                .filter(p -> p.getStatus() != ParcelaStatus.PAGO)
+                .sorted(Comparator.comparing(Parcelas::getNumeroParcela))
+                .toList();
+
+        if (parcelasAlteraveis.isEmpty()) {
+            throw new RuntimeException("Não há parcelas em aberto para reprogramar");
+        }
+
+        for (int i = 0; i < parcelasAlteraveis.size(); i++) {
+            Parcelas parcela = parcelasAlteraveis.get(i);
+
+            if (novoValorParcela.compareTo(safe(parcela.getValorPago())) < 0) {
+                throw new RuntimeException(
+                        "Novo valor da parcela " + parcela.getNumeroParcela()
+                                + " não pode ser menor que o valor já pago"
+                );
+            }
+
+            LocalDate novaData = calcularNovaData(
+                    novaDataInicial,
+                    i,
+                    emprestimo.getFrequenciaPagamento()
+            );
+
+            parcela.setDataVencimento(novaData);
+            parcela.setValorParcela(novoValorParcela);
+
+            atualizarStatusParcelaReprogramada(
+                    parcela,
+                    novaData,
+                    novoValorParcela
+            );
+        }
+
+        parcelaRepositorio.saveAll(parcelasAlteraveis);
+        recalcularTotaisEPeriodoEmprestimo(emprestimo);
+    }
+
     private void validarDadosCriacao(FrequenciaPagamento frequenciaPagamento,
                                      TipoContrato tipoContrato) {
         if (frequenciaPagamento == null) {
@@ -223,8 +287,12 @@ public class EmprestimoService {
             return;
         }
 
-        emprestimo.setInicioPagamento(parcelas.get(0).getDataVencimento());
-        emprestimo.setFinalPagamento(parcelas.get(parcelas.size() - 1).getDataVencimento());
+        List<Parcelas> ordenadas = parcelas.stream()
+                .sorted(Comparator.comparing(Parcelas::getNumeroParcela))
+                .toList();
+
+        emprestimo.setInicioPagamento(ordenadas.get(0).getDataVencimento());
+        emprestimo.setFinalPagamento(ordenadas.get(ordenadas.size() - 1).getDataVencimento());
     }
 
     private void validarPagamentoParcela(Emprestimo emprestimo,
@@ -319,6 +387,95 @@ public class EmprestimoService {
                 .subtract(safe(parcela.getValorPago()));
 
         return falta.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : falta;
+    }
+
+    private LocalDate calcularNovaData(LocalDate dataInicial,
+                                       int indice,
+                                       FrequenciaPagamento frequenciaPagamento) {
+        return switch (frequenciaPagamento) {
+            case DIARIO -> dataInicial.plusDays(indice);
+            case SEMANAL -> dataInicial.plusWeeks(indice);
+            case QUINZENAL -> dataInicial.plusDays(indice * 15L);
+            case MENSAL -> calcularNovaDataMensal(dataInicial, indice);
+        };
+    }
+
+    private LocalDate calcularNovaDataMensal(LocalDate dataInicial, int indice) {
+        int diaBase = dataInicial.getDayOfMonth();
+
+        LocalDate mesBase = dataInicial.plusMonths(indice);
+        int ultimoDiaDoMes = mesBase.lengthOfMonth();
+        int diaNoMes = Math.min(diaBase, ultimoDiaDoMes);
+
+        return mesBase.withDayOfMonth(diaNoMes);
+    }
+
+    private void atualizarStatusParcelaReprogramada(Parcelas parcela,
+                                                    LocalDate novaData,
+                                                    BigDecimal novoValorParcela) {
+
+        BigDecimal valorPago = safe(parcela.getValorPago());
+
+        if (valorPago.compareTo(BigDecimal.ZERO) == 0) {
+            parcela.setStatus(
+                    novaData.isBefore(LocalDate.now())
+                            ? ParcelaStatus.ATRASADO
+                            : ParcelaStatus.PENDENTE
+            );
+            return;
+        }
+
+        if (valorPago.compareTo(novoValorParcela) >= 0) {
+            parcela.setStatus(ParcelaStatus.PAGO);
+            return;
+        }
+
+        parcela.setStatus(
+                novaData.isBefore(LocalDate.now())
+                        ? ParcelaStatus.ATRASADO
+                        : ParcelaStatus.PARCIAL
+        );
+    }
+
+    private void recalcularTotaisEPeriodoEmprestimo(Emprestimo emprestimo) {
+        List<Parcelas> parcelas = emprestimo.getParcelas();
+
+        BigDecimal totalEmprestimo = parcelas.stream()
+                .map(p -> safe(p.getValorParcela()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalRecebido = parcelas.stream()
+                .map(p -> safe(p.getValorPago()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        emprestimo.setValorParcela(
+                parcelas.stream()
+                        .filter(p -> p.getStatus() != ParcelaStatus.PAGO)
+                        .map(Parcelas::getValorParcela)
+                        .filter(v -> v != null)
+                        .findFirst()
+                        .orElse(emprestimo.getValorParcela())
+        );
+
+        emprestimo.setValorTotalEmprestimo(totalEmprestimo);
+        emprestimo.setValorRecebido(totalRecebido);
+        emprestimo.setValorAReceber(totalEmprestimo.subtract(totalRecebido));
+
+        boolean todasPagas = parcelas.stream()
+                .allMatch(p -> p.getStatus() == ParcelaStatus.PAGO);
+
+        if (todasPagas) {
+            emprestimo.setEmprestimoStatus(EmprestimoStatus.QUITADO);
+        } else if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
+            emprestimo.setEmprestimoStatus(EmprestimoStatus.EM_ABERTO);
+        }
+
+        List<Parcelas> ordenadas = parcelas.stream()
+                .sorted(Comparator.comparing(Parcelas::getNumeroParcela))
+                .toList();
+
+        atualizarPeriodoPagamento(emprestimo, ordenadas);
+        emprestimoRepositorio.save(emprestimo);
     }
 
     private EmprestimoDetalhadoDTO toDetalhadoDTO(Emprestimo e) {

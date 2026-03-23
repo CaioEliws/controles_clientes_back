@@ -3,7 +3,7 @@ package com.caio.controle_clientes.controllers;
 import com.caio.controle_clientes.dto.parcela.*;
 import com.caio.controle_clientes.models.ParcelaStatus;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
-import com.caio.controle_clientes.services.EmprestimoService;
+import com.caio.controle_clientes.services.emprestimo.EmprestimoService;
 import com.caio.controle_clientes.services.parcela.ParcelaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

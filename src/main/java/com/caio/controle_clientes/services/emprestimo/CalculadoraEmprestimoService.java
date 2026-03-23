@@ -1,4 +1,4 @@
-package com.caio.controle_clientes.services;
+package com.caio.controle_clientes.services.emprestimo;
 
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.FrequenciaPagamento;
@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,15 +56,20 @@ public class CalculadoraEmprestimoService {
                 emprestimo.getQuantidadeParcelas()
         ).setScale(2, RoundingMode.HALF_UP);
 
-        LocalDate vencimento = calcularPrimeiroVencimento(frequencia);
+        LocalDate primeiroVencimento = calcularPrimeiroVencimento(frequencia);
 
         for (int numeroParcela = 1; numeroParcela <= emprestimo.getQuantidadeParcelas(); numeroParcela++) {
             BigDecimal jurosParcela = saldoDevedor.multiply(taxa);
             BigDecimal amortizacao = valorParcela.subtract(jurosParcela);
             saldoDevedor = saldoDevedor.subtract(amortizacao);
 
+            LocalDate vencimento = calcularVencimentoPorIndice(
+                    primeiroVencimento,
+                    numeroParcela - 1,
+                    frequencia
+            );
+
             parcelas.add(criarParcela(emprestimo, numeroParcela, valorParcela, vencimento));
-            vencimento = proximoVencimento(vencimento, frequencia);
         }
 
         return parcelas;
@@ -97,23 +101,31 @@ public class CalculadoraEmprestimoService {
         LocalDate base = LocalDate.now();
 
         return switch (freq) {
-            case DIARIO -> ajustarSeDomingo(base.plusDays(1));
-            case SEMANAL -> ajustarSeDomingo(base.plusWeeks(1));
-            case QUINZENAL -> ajustarSeDomingo(base.plusDays(15));
-            case MENSAL -> ajustarSeDomingo(base.plusMonths(1));
+            case DIARIO -> base.plusDays(1);
+            case SEMANAL -> base.plusWeeks(1);
+            case QUINZENAL -> base.plusDays(15);
+            case MENSAL -> base.plusMonths(1);
         };
     }
 
-    private LocalDate proximoVencimento(LocalDate atual, FrequenciaPagamento freq) {
+    private LocalDate calcularVencimentoPorIndice(LocalDate primeiroVencimento,
+                                                  int indice,
+                                                  FrequenciaPagamento freq) {
         return switch (freq) {
-            case DIARIO -> ajustarSeDomingo(atual.plusDays(1));
-            case SEMANAL -> ajustarSeDomingo(atual.plusWeeks(1));
-            case QUINZENAL -> ajustarSeDomingo(atual.plusDays(15));
-            case MENSAL -> ajustarSeDomingo(atual.plusMonths(1));
+            case DIARIO -> primeiroVencimento.plusDays(indice);
+            case SEMANAL -> primeiroVencimento.plusWeeks(indice);
+            case QUINZENAL -> primeiroVencimento.plusDays(indice * 15L);
+            case MENSAL -> calcularVencimentoMensal(primeiroVencimento, indice);
         };
     }
 
-    private LocalDate ajustarSeDomingo(LocalDate data) {
-        return data.getDayOfWeek() == DayOfWeek.SUNDAY ? data.plusDays(1) : data;
+    private LocalDate calcularVencimentoMensal(LocalDate primeiroVencimento, int indice) {
+        int diaBase = primeiroVencimento.getDayOfMonth();
+
+        LocalDate mesBase = primeiroVencimento.plusMonths(indice);
+        int ultimoDiaDoMes = mesBase.lengthOfMonth();
+        int diaNoMes = Math.min(diaBase, ultimoDiaDoMes);
+
+        return mesBase.withDayOfMonth(diaNoMes);
     }
 }

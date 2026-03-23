@@ -2,11 +2,12 @@ package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.dto.emprestimo.EmprestimoCreateDTO;
 import com.caio.controle_clientes.dto.emprestimo.EmprestimoDetalhadoDTO;
+import com.caio.controle_clientes.dto.parcela.ReprogramarParcelasDTO;
 import com.caio.controle_clientes.models.Cliente;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.Parcelas;
 import com.caio.controle_clientes.services.ClienteService;
-import com.caio.controle_clientes.services.EmprestimoService;
+import com.caio.controle_clientes.services.emprestimo.EmprestimoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -101,5 +102,23 @@ public class EmprestimoController {
     ) {
         emprestimoService.quitarEmprestimo(perfilId, idCliente, idEmprestimo);
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{idEmprestimo}/parcelas/reprogramar")
+    public ResponseEntity<Void> reprogramarParcelas(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long idCliente,
+            @PathVariable Long idEmprestimo,
+            @RequestBody ReprogramarParcelasDTO dto
+    ) {
+        emprestimoService.reprogramarParcelas(
+                perfilId,
+                idCliente,
+                idEmprestimo,
+                dto.novaDataInicial(),
+                dto.novoValorParcela()
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }
