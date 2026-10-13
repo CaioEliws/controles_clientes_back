@@ -33,27 +33,27 @@ public class ImportacaoLinhaMapper {
     private static final int COL_SITUACAO = 18;
 
     public LinhaImportacaoDTO mapear(Row row, FormulaEvaluator evaluator, DataFormatter formatter) {
-        String nomeClienteOriginal = cellReader.getString(row.getCell(COL_CLIENTE), evaluator, formatter);
+        String nomeClienteOriginal = cellReader.getString(celula(row, COL_CLIENTE), evaluator, formatter);
 
         return new LinhaImportacaoDTO(
-                cellReader.getLocalDate(row.getCell(COL_DATA_EMPRESTIMO), evaluator, formatter),
+                cellReader.getLocalDate(celula(row, COL_DATA_EMPRESTIMO), evaluator, formatter),
                 nomeClienteOriginal,
                 limparNomeCliente(nomeClienteOriginal),
-                cellReader.getString(row.getCell(COL_INDICACAO), evaluator, formatter),
-                converterFormaPagamento(cellReader.getString(row.getCell(COL_FORMA_PGTO), evaluator, formatter)),
-                converterTipoContrato(cellReader.getString(row.getCell(COL_CONTRATO), evaluator, formatter)),
-                converterFrequencia(cellReader.getString(row.getCell(COL_PAGAMENTO_FREQUENCIA), evaluator, formatter)),
-                cellReader.getMoneyValue(row.getCell(COL_VALOR_EMPRESTIMO), evaluator, formatter),
-                cellReader.getIntegerValue(row.getCell(COL_QTDE_PARCELAS), evaluator, formatter),
-                cellReader.getIntegerValue(row.getCell(COL_QTDE_PARCELAS_PAGAS), evaluator, formatter),
-                cellReader.getMoneyValue(row.getCell(COL_VALOR_A_RECEBER), evaluator, formatter),
-                cellReader.getMoneyValue(row.getCell(COL_VALOR_RECEBIDO), evaluator, formatter),
-                cellReader.getMoneyValue(row.getCell(COL_VALOR_TOTAL_EMPRESTIMOS), evaluator, formatter),
-                cellReader.getMoneyValue(row.getCell(COL_VALOR_PARCELA), evaluator, formatter),
-                cellReader.getPercentValue(row.getCell(COL_TX_JUROS), evaluator, formatter),
-                cellReader.getLocalDate(row.getCell(COL_INICIO_PGTO), evaluator, formatter),
-                cellReader.getLocalDate(row.getCell(COL_FINAL_PGTO), evaluator, formatter),
-                converterStatus(cellReader.getString(row.getCell(COL_SITUACAO), evaluator, formatter))
+                cellReader.getString(celula(row, COL_INDICACAO), evaluator, formatter),
+                converterFormaPagamento(cellReader.getString(celula(row, COL_FORMA_PGTO), evaluator, formatter)),
+                converterTipoContrato(cellReader.getString(celula(row, COL_CONTRATO), evaluator, formatter)),
+                converterFrequencia(cellReader.getString(celula(row, COL_PAGAMENTO_FREQUENCIA), evaluator, formatter)),
+                cellReader.getMoneyValue(celula(row, COL_VALOR_EMPRESTIMO), evaluator, formatter),
+                cellReader.getIntegerValue(celula(row, COL_QTDE_PARCELAS), evaluator, formatter),
+                cellReader.getIntegerValue(celula(row, COL_QTDE_PARCELAS_PAGAS), evaluator, formatter),
+                cellReader.getMoneyValue(celula(row, COL_VALOR_A_RECEBER), evaluator, formatter),
+                cellReader.getMoneyValue(celula(row, COL_VALOR_RECEBIDO), evaluator, formatter),
+                cellReader.getMoneyValue(celula(row, COL_VALOR_TOTAL_EMPRESTIMOS), evaluator, formatter),
+                cellReader.getMoneyValue(celula(row, COL_VALOR_PARCELA), evaluator, formatter),
+                cellReader.getPercentValue(celula(row, COL_TX_JUROS), evaluator, formatter),
+                cellReader.getLocalDate(celula(row, COL_INICIO_PGTO), evaluator, formatter),
+                cellReader.getLocalDate(celula(row, COL_FINAL_PGTO), evaluator, formatter),
+                converterStatus(cellReader.getString(celula(row, COL_SITUACAO), evaluator, formatter))
         );
     }
 
@@ -75,6 +75,15 @@ public class ImportacaoLinhaMapper {
             return "";
         }
         return nomeClienteOriginal.split("\\(")[0].trim();
+    }
+
+    private Cell celula(Row row, int indice) {
+        Row header = row.getSheet().getRow(0);
+        Cell titulo = header == null ? null : header.getCell(4);
+        boolean exportacaoAntiga = titulo != null && titulo.getCellType() == CellType.STRING
+                && "Pagamento".equalsIgnoreCase(titulo.getStringCellValue().trim());
+        if (exportacaoAntiga && indice == COL_CONTRATO) return null;
+        return row.getCell(exportacaoAntiga && indice >= COL_PAGAMENTO_FREQUENCIA ? indice - 1 : indice);
     }
 
     private FrequenciaPagamento converterFrequencia(String raw) {

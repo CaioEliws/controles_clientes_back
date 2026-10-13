@@ -20,7 +20,7 @@ public class ImportController {
     public ResponseEntity<ImportacaoResultado> importar(
             @RequestHeader("X-Perfil-Id") Long perfilId,
             @RequestParam("file") MultipartFile file
-    ) {
+    ) throws Exception {
 
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(
@@ -35,9 +35,11 @@ public class ImportController {
             return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
 
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(
-                    new ImportacaoResultado(0, 0, 0, 0, java.util.List.of())
-            );
+            if (e instanceof java.io.IOException || e instanceof org.apache.poi.UnsupportedFileFormatException
+                    || e instanceof IllegalArgumentException) {
+                throw new IllegalArgumentException("Arquivo Excel inválido ou incompatível.");
+            }
+            throw e;
         }
     }
 }

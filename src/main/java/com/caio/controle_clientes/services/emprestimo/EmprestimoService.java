@@ -2,7 +2,10 @@ package com.caio.controle_clientes.services.emprestimo;
 
 import com.caio.controle_clientes.dto.emprestimo.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.exceptions.ParcelaPagaException;
+import com.caio.controle_clientes.exceptions.RegraNegocioException;
 import com.caio.controle_clientes.models.*;
+import com.caio.controle_clientes.repository.ClienteRepositorio;
+import com.caio.controle_clientes.repository.ContratoGeradoRepositorio;
 import com.caio.controle_clientes.repository.EmprestimoRepositorio;
 import com.caio.controle_clientes.repository.ParcelaRepositorio;
 import com.caio.controle_clientes.services.perfil.PerfilService;
@@ -22,15 +25,21 @@ public class EmprestimoService {
     private final EmprestimoRepositorio emprestimoRepositorio;
     private final ParcelaRepositorio parcelaRepositorio;
     private final CalculadoraEmprestimoService calculadora;
+    private final ClienteRepositorio clienteRepositorio;
+    private final ContratoGeradoRepositorio contratoGeradoRepositorio;
 
     public EmprestimoService(EmprestimoRepositorio emprestimoRepositorio,
                              ParcelaRepositorio parcelaRepositorio,
                              CalculadoraEmprestimoService calculadora,
-                             PerfilService perfilService) {
+                             PerfilService perfilService,
+                             ClienteRepositorio clienteRepositorio,
+                             ContratoGeradoRepositorio contratoGeradoRepositorio) {
         this.emprestimoRepositorio = emprestimoRepositorio;
         this.parcelaRepositorio = parcelaRepositorio;
         this.calculadora = calculadora;
         this.perfilService = perfilService;
+        this.clienteRepositorio = clienteRepositorio;
+        this.contratoGeradoRepositorio = contratoGeradoRepositorio;
     }
 
     @Transactional
@@ -43,13 +52,45 @@ public class EmprestimoService {
                                       FrequenciaPagamento frequenciaPagamento,
                                       TipoContrato tipoContrato) {
 
+        return criarEmprestimo(perfilId, cliente, valorEmprestado, quantidadeParcelas,
+                jurosCobrado, formaPagamento, frequenciaPagamento, tipoContrato, null);
+    }
+
+    @Transactional
+    public Emprestimo criarEmprestimo(Long perfilId,
+                                      Cliente cliente,
+                                      BigDecimal valorEmprestado,
+                                      int quantidadeParcelas,
+                                      BigDecimal jurosCobrado,
+                                      FormaPagamento formaPagamento,
+                                      FrequenciaPagamento frequenciaPagamento,
+                                      TipoContrato tipoContrato,
+                                      Long fiadorId) {
+
+        if (fiadorId == null) {
+            throw new RegraNegocioException("Fiador é obrigatório.");
+        }
         validarDadosCriacao(frequenciaPagamento, tipoContrato);
+        if (valorEmprestado == null || valorEmprestado.signum() <= 0) {
+            throw new RegraNegocioException("Valor emprestado deve ser maior que zero.");
+        }
+        if (quantidadeParcelas <= 0) {
+            throw new RegraNegocioException("Quantidade de parcelas deve ser maior que zero.");
+        }
+        if (jurosCobrado == null || jurosCobrado.signum() < 0) {
+            throw new RegraNegocioException("Taxa de juros deve ser informada e não pode ser negativa.");
+        }
+        if (formaPagamento == null) {
+            throw new RegraNegocioException("Forma de pagamento é obrigatória.");
+        }
 
         Perfil perfil = perfilService.buscarPorId(perfilId);
 
         if (cliente.getPerfil() == null || !perfilId.equals(cliente.getPerfil().getId())) {
-            throw new RuntimeException("Cliente não pertence ao perfil informado");
+            throw new RegraNegocioException("Cliente não pertence ao perfil informado");
         }
+
+        Cliente fiador = buscarFiador(perfilId, fiadorId);
 
         Emprestimo emprestimo = montarEmprestimo(
                 perfil,
@@ -62,6 +103,7 @@ public class EmprestimoService {
                 tipoContrato
         );
 
+        emprestimo.setFiador(fiador);
         emprestimoRepositorio.save(emprestimo);
 
         List<Parcelas> parcelas = calculadora.gerarParcelas(emprestimo);
@@ -79,7 +121,26 @@ public class EmprestimoService {
     }
 
     @Transactional
+    public void alterarFiador(Long perfilId, Long idCliente, Long idEmprestimo, Long fiadorId) {
+        Emprestimo emprestimo = buscarEmprestimoPorId(perfilId, idEmprestimo);
+        validarPertencimentoCliente(emprestimo, idCliente);
+        validarClientePertenceAoPerfil(emprestimo.getCliente(), perfilId);
+        emprestimo.setFiador(buscarFiador(perfilId, fiadorId));
+        emprestimoRepositorio.save(emprestimo);
+    }
+
+    private Cliente buscarFiador(Long perfilId, Long fiadorId) {
+        if (fiadorId == null) {
+            throw new RegraNegocioException("Fiador é obrigatório.");
+        }
+        return clienteRepositorio.findByIdAndPerfilId(fiadorId, perfilId)
+                .orElseThrow(() -> new RegraNegocioException(
+                        "Fiador não encontrado para o perfil informado."));
+    }
+
+    @Transactional
     public void pagarParcela(Long perfilId, Long idEmprestimo, Integer numeroParcela) {
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
 
         BigDecimal saldoRestante = safe(parcela.getValorParcela())
@@ -93,7 +154,7 @@ public class EmprestimoService {
                                     Long idEmprestimo,
                                     Integer numeroParcela,
                                     BigDecimal valorPago) {
-
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
         Emprestimo emprestimo = parcela.getEmprestimo();
 
@@ -135,17 +196,24 @@ public class EmprestimoService {
 
     @Transactional
     public void deletarEmprestimo(Long perfilId, Long idCliente, Long idEmprestimo) {
+        perfilService.buscarPorId(perfilId);
+        clienteRepositorio.findByIdAndPerfilId(idCliente, perfilId)
+                .orElseThrow(() -> new RegraNegocioException("Cliente não encontrado para o perfil informado."));
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
         validarPertencimentoCliente(emprestimo, idCliente);
 
         boolean existeParcelaPaga = emprestimo.getParcelas() != null &&
                 emprestimo.getParcelas().stream()
-                        .anyMatch(p -> p.getStatus() == ParcelaStatus.PAGO || p.getStatus() == ParcelaStatus.PARCIAL);
+                        .anyMatch(p -> safe(p.getValorPago()).signum() > 0
+                                || p.getStatus() == ParcelaStatus.PAGO || p.getStatus() == ParcelaStatus.PARCIAL);
 
         if (existeParcelaPaga) {
-            throw new RuntimeException("Não é possível excluir empréstimo com parcelas pagas");
+            throw new RegraNegocioException("Não é possível excluir empréstimo com parcelas pagas");
         }
 
+        // Bulk delete executa o SQL antes de agendar a remoção do empréstimo.
+        contratoGeradoRepositorio.deleteByEmprestimoId(idEmprestimo);
         parcelaRepositorio.deleteAll(emprestimo.getParcelas());
         emprestimoRepositorio.delete(emprestimo);
     }
@@ -178,20 +246,21 @@ public class EmprestimoService {
                                     BigDecimal novoValorParcela) {
 
         if (novaDataInicial == null) {
-            throw new RuntimeException("Nova data inicial é obrigatória");
+            throw new RegraNegocioException("Nova data inicial é obrigatória");
         }
 
         if (novoValorParcela == null || novoValorParcela.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Novo valor da parcela deve ser maior que zero");
+            throw new RegraNegocioException("Novo valor da parcela deve ser maior que zero");
         }
 
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
         validarPertencimentoCliente(emprestimo, idCliente);
 
         List<Parcelas> parcelas = emprestimo.getParcelas();
 
         if (parcelas == null || parcelas.isEmpty()) {
-            throw new RuntimeException("Empréstimo não possui parcelas");
+            throw new RegraNegocioException("Empréstimo não possui parcelas");
         }
 
         List<Parcelas> parcelasAlteraveis = parcelas.stream()
@@ -200,14 +269,14 @@ public class EmprestimoService {
                 .toList();
 
         if (parcelasAlteraveis.isEmpty()) {
-            throw new RuntimeException("Não há parcelas em aberto para reprogramar");
+            throw new RegraNegocioException("Não há parcelas em aberto para reprogramar");
         }
 
         for (int i = 0; i < parcelasAlteraveis.size(); i++) {
             Parcelas parcela = parcelasAlteraveis.get(i);
 
             if (novoValorParcela.compareTo(safe(parcela.getValorPago())) < 0) {
-                throw new RuntimeException(
+                throw new RegraNegocioException(
                         "Novo valor da parcela " + parcela.getNumeroParcela()
                                 + " não pode ser menor que o valor já pago"
                 );
@@ -236,11 +305,11 @@ public class EmprestimoService {
     private void validarDadosCriacao(FrequenciaPagamento frequenciaPagamento,
                                      TipoContrato tipoContrato) {
         if (frequenciaPagamento == null) {
-            throw new RuntimeException("Frequência de pagamento é obrigatória");
+            throw new RegraNegocioException("Frequência de pagamento é obrigatória");
         }
 
         if (tipoContrato == null) {
-            throw new RuntimeException("Tipo de contrato é obrigatório");
+            throw new RegraNegocioException("Tipo de contrato é obrigatório");
         }
     }
 
@@ -258,6 +327,9 @@ public class EmprestimoService {
                 jurosCobrado,
                 quantidadeParcelas
         );
+        if (valorParcela.signum() <= 0) {
+            throw new RegraNegocioException("Valor calculado da parcela deve ser maior que zero.");
+        }
 
         BigDecimal valorTotal = valorParcela
                 .multiply(BigDecimal.valueOf(quantidadeParcelas))
@@ -299,8 +371,12 @@ public class EmprestimoService {
                                          Parcelas parcela,
                                          BigDecimal valorPago) {
 
+        if (valorPago == null) {
+            throw new RegraNegocioException("Valor do pagamento é obrigatório.");
+        }
+
         if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
-            throw new RuntimeException("Empréstimo já quitado");
+            throw new RegraNegocioException("Empréstimo já quitado");
         }
 
         if (parcela.getStatus() == ParcelaStatus.PAGO) {
@@ -308,14 +384,14 @@ public class EmprestimoService {
         }
 
         if (valorPago.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Valor deve ser maior que zero");
+            throw new RegraNegocioException("Valor deve ser maior que zero");
         }
 
         BigDecimal saldoAtual = safe(parcela.getValorParcela())
                 .subtract(safe(parcela.getValorPago()));
 
         if (valorPago.compareTo(saldoAtual) > 0) {
-            throw new RuntimeException("Valor maior que saldo da parcela");
+            throw new RegraNegocioException("Valor maior que saldo da parcela");
         }
     }
 
@@ -342,16 +418,16 @@ public class EmprestimoService {
                                      Long idEmprestimo,
                                      EmprestimoStatus statusFinal,
                                      boolean validarRefinanciado) {
-
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Emprestimo emprestimo = buscarEmprestimoComParcelas(perfilId, idEmprestimo);
         validarPertencimentoCliente(emprestimo, idCliente);
 
         if (emprestimo.getEmprestimoStatus() == EmprestimoStatus.QUITADO) {
-            throw new RuntimeException("Empréstimo já está quitado");
+            throw new RegraNegocioException("Empréstimo já está quitado");
         }
 
         if (validarRefinanciado && emprestimo.getEmprestimoStatus() == EmprestimoStatus.REFINANCIADO) {
-            throw new RuntimeException("Empréstimo já foi refinanciado");
+            throw new RegraNegocioException("Empréstimo já foi refinanciado");
         }
 
         LocalDate hoje = LocalDate.now();
@@ -478,6 +554,13 @@ public class EmprestimoService {
         emprestimoRepositorio.save(emprestimo);
     }
 
+    @Transactional(readOnly = true)
+    public List<EmprestimoDetalhadoDTO> listarDetalhadoDoPerfil(Long perfilId) {
+        perfilService.buscarPorId(perfilId);
+        return emprestimoRepositorio.findAllByPerfilId(perfilId).stream()
+                .map(this::toDetalhadoDTO).toList();
+    }
+
     private EmprestimoDetalhadoDTO toDetalhadoDTO(Emprestimo e) {
         long pagas = e.getParcelas().stream()
                 .filter(p -> p.getStatus().isPago())
@@ -509,35 +592,42 @@ public class EmprestimoService {
                 e.getQuantidadeParcelas(),
                 pagas,
                 pendentes,
-                atrasadas
+                atrasadas,
+                e.getFiador() == null ? null : e.getFiador().getId(),
+                e.getFiador() == null ? null : e.getFiador().getNome()
         );
     }
 
     private void validarPertencimentoCliente(Emprestimo emprestimo, Long idCliente) {
         if (!emprestimo.getCliente().getId().equals(idCliente)) {
-            throw new RuntimeException("Este empréstimo não pertence ao cliente informado");
+            throw new RegraNegocioException("Este empréstimo não pertence ao cliente informado");
         }
     }
 
     private void validarClientePertenceAoPerfil(Cliente cliente, Long perfilId) {
         if (cliente.getPerfil() == null || !perfilId.equals(cliente.getPerfil().getId())) {
-            throw new RuntimeException("Cliente não pertence ao perfil informado");
+            throw new RegraNegocioException("Cliente não pertence ao perfil informado");
         }
     }
 
     private Emprestimo buscarEmprestimoPorId(Long perfilId, Long idEmprestimo) {
         return emprestimoRepositorio.findByIdAndPerfilId(idEmprestimo, perfilId)
-                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+                .orElseThrow(() -> new RegraNegocioException("Empréstimo não encontrado"));
+    }
+
+    private void bloquearEmprestimo(Long perfilId, Long idEmprestimo) {
+        emprestimoRepositorio.bloquearParaAtualizacao(idEmprestimo, perfilId)
+                .orElseThrow(() -> new RegraNegocioException("Empréstimo não encontrado"));
     }
 
     private Emprestimo buscarEmprestimoComParcelas(Long perfilId, Long idEmprestimo) {
         return emprestimoRepositorio.buscarComParcelas(idEmprestimo, perfilId)
-                .orElseThrow(() -> new RuntimeException("Empréstimo não encontrado"));
+                .orElseThrow(() -> new RegraNegocioException("Empréstimo não encontrado"));
     }
 
     private Parcelas buscarParcela(Long perfilId, Long idEmprestimo, Integer numeroParcela) {
         return parcelaRepositorio.findByEmprestimoIdAndPerfilIdAndNumeroParcela(idEmprestimo, perfilId, numeroParcela)
-                .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
+                .orElseThrow(() -> new RegraNegocioException("Parcela não encontrada"));
     }
 
     private BigDecimal safe(BigDecimal value) {

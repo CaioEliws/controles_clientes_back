@@ -1,5 +1,7 @@
 package com.caio.controle_clientes.services.emprestimo;
 
+import com.caio.controle_clientes.exceptions.RegraNegocioException;
+
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.FrequenciaPagamento;
 import com.caio.controle_clientes.models.ParcelaStatus;
@@ -77,7 +79,7 @@ public class CalculadoraEmprestimoService {
 
     private FrequenciaPagamento validarFrequencia(Emprestimo emprestimo) {
         if (emprestimo.getFrequenciaPagamento() == null) {
-            throw new RuntimeException("Frequência de pagamento não informada");
+            throw new RegraNegocioException("Frequência de pagamento não informada");
         }
         return emprestimo.getFrequenciaPagamento();
     }

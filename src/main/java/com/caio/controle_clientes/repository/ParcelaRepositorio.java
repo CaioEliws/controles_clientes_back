@@ -5,6 +5,7 @@ import com.caio.controle_clientes.models.ParcelaStatus;
 import com.caio.controle_clientes.models.Parcelas;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
@@ -12,6 +13,17 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ParcelaRepositorio extends JpaRepository<Parcelas, Long> {
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+        UPDATE Parcelas p SET p.status = :atrasado
+        WHERE p.perfil.id = :perfilId AND p.dataVencimento < :hoje
+          AND p.status IN :statuses
+          AND COALESCE(p.valorPago, 0) < p.valorParcela
+    """)
+    int atualizarStatusAtrasadas(@Param("perfilId") Long perfilId, @Param("hoje") LocalDate hoje,
+                               @Param("statuses") List<ParcelaStatus> statuses,
+                               @Param("atrasado") ParcelaStatus atrasado);
 
     Optional<Parcelas> findByIdAndPerfilId(Long id, Long perfilId);
 

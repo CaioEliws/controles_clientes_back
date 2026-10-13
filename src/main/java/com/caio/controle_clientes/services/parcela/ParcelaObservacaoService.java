@@ -1,5 +1,7 @@
 package com.caio.controle_clientes.services.parcela;
 
+import com.caio.controle_clientes.exceptions.RegraNegocioException;
+
 import com.caio.controle_clientes.dto.parcela.ParcelaObservacaoResponseDTO;
 import com.caio.controle_clientes.models.ParcelaObservacao;
 import com.caio.controle_clientes.models.Parcelas;
@@ -29,17 +31,18 @@ public class ParcelaObservacaoService {
                                 String textoObservacao) {
 
         if (textoObservacao == null || textoObservacao.isBlank()) {
-            throw new RuntimeException("Observação é obrigatória");
+            throw new RegraNegocioException("Observação é obrigatória");
         }
 
         Parcelas parcela = parcelaRepositorio
                 .findByEmprestimoIdAndPerfilIdAndNumeroParcela(idEmprestimo, perfilId, numeroParcela)
-                .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
+                .orElseThrow(() -> new RegraNegocioException("Parcela não encontrada"));
 
         ParcelaObservacao observacao = new ParcelaObservacao();
         observacao.setObservacao(textoObservacao.trim());
         observacao.setParcela(parcela);
         observacao.setPerfil(parcela.getPerfil());
+        parcela.getObservacoes().add(observacao);
 
         observacaoRepositorio.save(observacao);
     }
@@ -51,7 +54,7 @@ public class ParcelaObservacaoService {
 
         Parcelas parcela = parcelaRepositorio
                 .findByEmprestimoIdAndPerfilIdAndNumeroParcela(idEmprestimo, perfilId, numeroParcela)
-                .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
+                .orElseThrow(() -> new RegraNegocioException("Parcela não encontrada"));
 
         return observacaoRepositorio
                 .findByParcelaIdAndPerfilIdOrderByDataCriacaoDesc(parcela.getId(), perfilId)
@@ -66,12 +69,12 @@ public class ParcelaObservacaoService {
                                  String novoTexto) {
 
         if (novoTexto == null || novoTexto.isBlank()) {
-            throw new RuntimeException("Observação é obrigatória");
+            throw new RegraNegocioException("Observação é obrigatória");
         }
 
         ParcelaObservacao observacao = observacaoRepositorio
                 .findByIdAndPerfilId(idObservacao, perfilId)
-                .orElseThrow(() -> new RuntimeException("Observação não encontrada"));
+                .orElseThrow(() -> new RegraNegocioException("Observação não encontrada"));
 
         observacao.setObservacao(novoTexto.trim());
 
@@ -82,8 +85,9 @@ public class ParcelaObservacaoService {
     public void removerObservacao(Long perfilId, Long idObservacao) {
         ParcelaObservacao observacao = observacaoRepositorio
                 .findByIdAndPerfilId(idObservacao, perfilId)
-                .orElseThrow(() -> new RuntimeException("Observação não encontrada"));
+                .orElseThrow(() -> new RegraNegocioException("Observação não encontrada"));
 
+        observacao.getParcela().getObservacoes().remove(observacao);
         observacaoRepositorio.delete(observacao);
     }
 

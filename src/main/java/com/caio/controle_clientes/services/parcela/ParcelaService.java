@@ -1,5 +1,7 @@
 package com.caio.controle_clientes.services.parcela;
 
+import com.caio.controle_clientes.exceptions.RegraNegocioException;
+
 import com.caio.controle_clientes.dto.parcela.ParcelaResponseDTO;
 import com.caio.controle_clientes.models.Emprestimo;
 import com.caio.controle_clientes.models.EmprestimoStatus;
@@ -27,47 +29,26 @@ public class ParcelaService {
 
     @Transactional
     public void atualizarParcelasAtrasadas(Long perfilId) {
-        LocalDate hoje = LocalDate.now();
-
-        List<Parcelas> pendentesAtrasadas =
-                parcelaRepositorio.findByStatusAndPerfilIdAndDataVencimentoBefore(
-                        ParcelaStatus.PENDENTE,
-                        perfilId,
-                        hoje
-                );
-
-        List<Parcelas> parciaisAtrasadas =
-                parcelaRepositorio.findByStatusAndPerfilIdAndDataVencimentoBefore(
-                        ParcelaStatus.PARCIAL,
-                        perfilId,
-                        hoje
-                );
-
-        pendentesAtrasadas.forEach(p -> p.setStatus(ParcelaStatus.ATRASADO));
-        parciaisAtrasadas.forEach(p -> p.setStatus(ParcelaStatus.ATRASADO));
-
-        pendentesAtrasadas.addAll(parciaisAtrasadas);
-
-        if (!pendentesAtrasadas.isEmpty()) {
-            parcelaRepositorio.saveAll(pendentesAtrasadas);
-        }
+        parcelaRepositorio.atualizarStatusAtrasadas(perfilId, LocalDate.now(),
+                List.of(ParcelaStatus.PENDENTE, ParcelaStatus.PARCIAL), ParcelaStatus.ATRASADO);
     }
 
     @Transactional
     public void desfazerPagamentoParcela(Long perfilId,
                                          Long idEmprestimo,
                                          Integer numeroParcela) {
-
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
         Emprestimo emprestimo = parcela.getEmprestimo();
 
         BigDecimal valorPagoAtual = safe(parcela.getValorPago());
 
         if (valorPagoAtual.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("A parcela não possui pagamento para desfazer");
+            throw new RegraNegocioException("A parcela não possui pagamento para desfazer");
         }
 
         parcela.setValorPago(BigDecimal.ZERO);
+        parcela.setDataPagamento(null);
 
         if (parcela.getDataVencimento().isBefore(LocalDate.now())) {
             parcela.setStatus(ParcelaStatus.ATRASADO);
@@ -86,26 +67,26 @@ public class ParcelaService {
                                Integer numeroParcela,
                                LocalDate novaData,
                                BigDecimal novoValor) {
-
+        bloquearEmprestimo(perfilId, idEmprestimo);
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
         Emprestimo emprestimo = parcela.getEmprestimo();
 
         if (novaData == null) {
-            throw new RuntimeException("Nova data é obrigatória");
+            throw new RegraNegocioException("Nova data é obrigatória");
         }
 
         if (novoValor == null) {
-            throw new RuntimeException("Novo valor é obrigatório");
+            throw new RegraNegocioException("Novo valor é obrigatório");
         }
 
         if (novoValor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Novo valor deve ser maior que zero");
+            throw new RegraNegocioException("Novo valor deve ser maior que zero");
         }
 
         BigDecimal valorPagoAtual = safe(parcela.getValorPago());
 
         if (novoValor.compareTo(valorPagoAtual) < 0) {
-            throw new RuntimeException("Novo valor não pode ser menor que o valor já pago na parcela");
+            throw new RegraNegocioException("Novo valor não pode ser menor que o valor já pago na parcela");
         }
 
         validarDataAlteracao(parcela, novaData);
@@ -129,7 +110,7 @@ public class ParcelaService {
         Parcelas parcela = buscarParcela(perfilId, idEmprestimo, numeroParcela);
 
         if (novaData == null) {
-            throw new RuntimeException("Nova data é obrigatória");
+            throw new RegraNegocioException("Nova data é obrigatória");
         }
 
         validarDataAlteracao(parcela, novaData);
@@ -150,7 +131,7 @@ public class ParcelaService {
         boolean parcelaNaoEstaPaga = parcela.getStatus() != ParcelaStatus.PAGO;
 
         if (parcelaNaoEstaPaga && novaData.isBefore(LocalDate.now())) {
-            throw new RuntimeException("Data inválida para parcela não paga");
+            throw new RegraNegocioException("Data inválida para parcela não paga");
         }
     }
 
@@ -211,6 +192,11 @@ public class ParcelaService {
         return value == null ? BigDecimal.ZERO : value;
     }
 
+    private void bloquearEmprestimo(Long perfilId, Long idEmprestimo) {
+        emprestimoRepositorio.bloquearParaAtualizacao(idEmprestimo, perfilId)
+                .orElseThrow(() -> new RegraNegocioException("Empréstimo não encontrado"));
+    }
+
     private Parcelas buscarParcela(Long perfilId,
                                    Long idEmprestimo,
                                    Integer numeroParcela) {
@@ -221,7 +207,7 @@ public class ParcelaService {
                         perfilId,
                         numeroParcela
                 )
-                .orElseThrow(() -> new RuntimeException("Parcela não encontrada"));
+                .orElseThrow(() -> new RegraNegocioException("Parcela não encontrada"));
     }
 
     public ParcelaResponseDTO toDTO(Parcelas parcela) {

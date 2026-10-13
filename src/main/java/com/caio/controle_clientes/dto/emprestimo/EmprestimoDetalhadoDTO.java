@@ -23,5 +23,7 @@ public record EmprestimoDetalhadoDTO(
         Integer quantidadeParcelas,
         Long parcelasPagas,
         Long parcelasPendentes,
-        Long parcelasAtrasadas
+        Long parcelasAtrasadas,
+        Long fiadorId,
+        String fiadorNome
 ) {}

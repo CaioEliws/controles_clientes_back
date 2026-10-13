@@ -20,11 +20,36 @@ public class Cliente {
 
     private String nomeIndicador;
 
+    private String nacionalidade;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private SexoDocumento sexoDocumento;
+
+    @Enumerated(EnumType.STRING)
+    private EstadoCivil estadoCivil;
+
+    private String profissao;
+
+    private String rg;
+
+    private String rgOrgaoExpedidor;
+
+    private String cpf;
+
     private String enderecoRua;
 
     private String enderecoBairro;
 
     private  Integer enderecoNumero;
+
+    private String enderecoComplemento;
+
+    private String enderecoCep;
+
+    private String enderecoCidade;
+
+    private String enderecoEstado;
 
     private LocalDate criadoEm = LocalDate.now();
 

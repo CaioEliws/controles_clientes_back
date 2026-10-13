@@ -1,5 +1,7 @@
 package com.caio.controle_clientes.services.perfil;
 
+import com.caio.controle_clientes.exceptions.RegraNegocioException;
+
 import com.caio.controle_clientes.models.Perfil;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +15,7 @@ public class PerfilHeaderService {
 
     public Perfil resolverPerfil(Long perfilId) {
         if (perfilId == null) {
-            throw new RuntimeException("Cabeçalho X-Perfil-Id não enviado.");
+            throw new RegraNegocioException("Cabeçalho X-Perfil-Id não enviado.");
         }
 
         return perfilService.buscarPorId(perfilId);

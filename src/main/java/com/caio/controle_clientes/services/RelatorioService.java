@@ -44,26 +44,22 @@ public class RelatorioService {
 
             totalEmprestado = totalEmprestado.add(e.getValorEmprestado());
 
-            List<Parcelas> parcelas =
-                    parcelaRepositorio.findByEmprestimoAndPerfilId(e, perfilId);
+            // A consulta acima já carrega as parcelas no mesmo fetch do empréstimo.
+            List<Parcelas> parcelas = e.getParcelas();
 
             totalParcelas += parcelas.size();
 
             for (Parcelas p : parcelas) {
-
-                if (p.getStatus() == ParcelaStatus.PAGO) {
-                    totalPago = totalPago.add(p.getValorParcela());
+                BigDecimal pago = p.getValorPago() == null ? BigDecimal.ZERO : p.getValorPago();
+                BigDecimal saldo = p.getValorParcela().subtract(pago).max(BigDecimal.ZERO);
+                totalPago = totalPago.add(pago);
+                totalAberto = totalAberto.add(saldo);
+                if (saldo.signum() == 0) {
                     parcelasPagas++;
-                }
-
-                if (p.getStatus() == ParcelaStatus.PENDENTE) {
-                    totalAberto = totalAberto.add(p.getValorParcela());
-                    parcelasAVencer++;
-                }
-
-                if (p.getStatus() == ParcelaStatus.ATRASADO) {
-                    totalAberto = totalAberto.add(p.getValorParcela());
+                } else if (p.getDataVencimento() != null && p.getDataVencimento().isBefore(LocalDate.now())) {
                     parcelasAtrasadas++;
+                } else {
+                    parcelasAVencer++;
                 }
             }
         }
@@ -85,7 +81,7 @@ public class RelatorioService {
         List<Parcelas> parcelasAtrasadas =
                 parcelaRepositorio.findParcelasAtrasadasComCliente(
                         LocalDate.now(),
-                        List.of(ParcelaStatus.ATRASADO, ParcelaStatus.PARCIAL),
+                        List.of(ParcelaStatus.PENDENTE, ParcelaStatus.ATRASADO, ParcelaStatus.PARCIAL),
                         perfilId
                 );
 

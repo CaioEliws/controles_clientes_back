@@ -19,5 +19,34 @@ public class Perfil {
     @Column(nullable = false, unique = true)
     private String nome;
 
+    private String nomeCompleto;
+
+    private String nacionalidade;
+
+    @Enumerated(EnumType.STRING)
+    private EstadoCivil estadoCivil;
+
+    private String profissao;
+
+    private String rg;
+
+    private String rgOrgaoExpedidor;
+
+    private String cpf;
+
+    private String enderecoRua;
+
+    private Integer enderecoNumero;
+
+    private String enderecoComplemento;
+
+    private String enderecoBairro;
+
+    private String enderecoCep;
+
+    private String enderecoCidade;
+
+    private String enderecoEstado;
+
     private LocalDateTime dataCriacao = LocalDateTime.now();
 }

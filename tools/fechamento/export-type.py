@@ -1,0 +1,4 @@
+from pathlib import Path
+front=Path('../frontend/src')
+p=front/'services/apiClient.ts';s=p.read_text(encoding='utf-8').replace('Promise<{ blob: Blob; nomeArquivo: string }>', 'Promise<{ blob: Blob; nomeArquivo: string; contentType: string }>').replace('return { blob: await response.blob(), nomeArquivo };','return { blob: await response.blob(), nomeArquivo, contentType: response.headers.get("content-type") ?? "" };');p.write_text(s,encoding='utf-8')
+p=front/'pages/BackupPage/index.tsx';s=p.read_text(encoding='utf-8').replace('const { blob } = await apiClient.getBlob("/export", "backup.xlsx");','const { blob, contentType } = await apiClient.getBlob("/export", "backup.xlsx");\n      if (!contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) throw new Error("Não foi possível baixar o arquivo.");');p.write_text(s,encoding='utf-8')

@@ -1,6 +1,7 @@
 package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.dto.emprestimo.EmprestimoCreateDTO;
+import com.caio.controle_clientes.dto.emprestimo.AlterarFiadorDTO;
 import com.caio.controle_clientes.dto.emprestimo.EmprestimoDetalhadoDTO;
 import com.caio.controle_clientes.dto.parcela.ReprogramarParcelasDTO;
 import com.caio.controle_clientes.models.Cliente;
@@ -9,6 +10,7 @@ import com.caio.controle_clientes.models.Parcelas;
 import com.caio.controle_clientes.services.ClienteService;
 import com.caio.controle_clientes.services.emprestimo.EmprestimoService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +29,7 @@ public class EmprestimoController {
     public ResponseEntity<Void> criarEmprestimo(
             @RequestHeader("X-Perfil-Id") Long perfilId,
             @PathVariable Long idCliente,
-            @RequestBody EmprestimoCreateDTO dto
+            @Valid @RequestBody EmprestimoCreateDTO dto
     ) {
         Cliente cliente = clienteService.getClienteById(perfilId, idCliente);
 
@@ -39,10 +41,22 @@ public class EmprestimoController {
                 dto.jurosCobrado(),
                 dto.formaPagamento(),
                 dto.frequenciaPagamento(),
-                dto.tipoContrato()
+                dto.tipoContrato(),
+                dto.fiadorId()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PatchMapping("/{idEmprestimo}/fiador")
+    public ResponseEntity<Void> alterarFiador(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long idCliente,
+            @PathVariable Long idEmprestimo,
+            @Valid @RequestBody AlterarFiadorDTO dto
+    ) {
+        emprestimoService.alterarFiador(perfilId, idCliente, idEmprestimo, dto.fiadorId());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping

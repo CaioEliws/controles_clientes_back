@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('src/main/java/com/caio/controle_clientes/services/importService/ImportacaoPlanilhaService.java');s=p.read_text(encoding='utf-8');a=s.index('                    log.error(');b=s.index('\n                }',a);s=s[:a]+'                    log.error("Falha na linha {}: {}", row.getRowNum() + 1, e.getClass().getSimpleName());'+s[b:];p.write_text(s,encoding='utf-8')
+p=Path('src/main/java/com/caio/controle_clientes/services/importService/ImportacaoCellReader.java');s=p.read_text(encoding='utf-8').replace('e.getMessage());','e.getClass().getSimpleName());');p.write_text(s,encoding='utf-8')

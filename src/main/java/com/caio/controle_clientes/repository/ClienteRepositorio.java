@@ -14,6 +14,14 @@ public interface ClienteRepositorio extends JpaRepository<Cliente, Long> {
     Optional<Cliente> findByIdAndPerfilId(Long id, Long perfilId);
 
     List<Cliente> findAllByPerfilId(Long perfilId);
+    interface IdentidadeCliente {
+        Long getId(); String getNome(); String getCpf();
+    }
+    @Query("select c.id as id, c.nome as nome, c.cpf as cpf from Cliente c where c.perfil.id = :perfilId")
+    List<IdentidadeCliente> listarIdentidades(@Param("perfilId") Long perfilId);
+
+    @Query("select c from Cliente c where c.perfil.id = :perfilId and replace(replace(replace(c.cpf, '.', ''), '-', ''), ' ', '') = :cpf")
+    List<Cliente> buscarPorCpfNormalizado(@Param("perfilId") Long perfilId, @Param("cpf") String cpf);
 
     @Query("""
         SELECT c FROM Cliente c

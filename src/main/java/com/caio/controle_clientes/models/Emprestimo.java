@@ -93,6 +93,15 @@ public class Emprestimo {
     @JoinColumn(name = "cliente_id")
     private Cliente cliente;
 
+    // O perfil é o credor; cliente continua sendo o devedor.
+    // Exposto nos DTOs detalhados, sem ampliar a serialização das entidades legadas.
+    @Getter
+    @Setter
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fiador_id")
+    private Cliente fiador;
+
     @Getter
     @Setter
     @JsonIgnore

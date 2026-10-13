@@ -29,13 +29,16 @@ public class ImportacaoCellReader {
             if (s == null || s.isBlank()) return BigDecimal.ZERO;
 
             String clean = s.replace("R$", "")
-                    .replaceAll("\\s", "")
-                    .replace(".", "")
-                    .replace(",", ".");
+                    .replaceAll("\\s", "");
+            if (clean.contains(",")) {
+                clean = clean.replace(".", "").replace(",", ".");
+            } else if (!clean.matches("[+-]?\\d+\\.\\d{1,2}")) {
+                clean = clean.replace(".", "");
+            }
 
             return new BigDecimal(clean);
         } catch (Exception e) {
-            log.debug("Erro ao converter valor monetário da célula: {}", e.getMessage());
+            log.debug("Erro ao converter valor monetário da célula: {}", e.getClass().getSimpleName());
             return BigDecimal.ZERO;
         }
     }
@@ -45,10 +48,13 @@ public class ImportacaoCellReader {
 
         try {
             CellValue evaluated = evaluator.evaluate(cell);
-            double value;
+            BigDecimal value;
+            boolean fracaoPercentual = false;
 
             if (evaluated != null && evaluated.getCellType() == CellType.NUMERIC) {
-                value = evaluated.getNumberValue();
+                value = BigDecimal.valueOf(evaluated.getNumberValue());
+                fracaoPercentual = cell.getCellStyle().getDataFormatString().contains("%")
+                        || value.signum() > 0 && value.compareTo(BigDecimal.ONE) < 0;
             } else {
                 String raw = formatter.formatCellValue(cell, evaluator)
                         .replace("%", "")
@@ -56,16 +62,16 @@ public class ImportacaoCellReader {
                         .trim();
 
                 if (raw.isBlank()) return BigDecimal.ZERO;
-                value = Double.parseDouble(raw);
+                value = new BigDecimal(raw);
             }
 
-            if (value > 0 && value < 1) {
-                value = value * 100;
+            if (fracaoPercentual) {
+                value = value.multiply(BigDecimal.valueOf(100));
             }
 
-            return BigDecimal.valueOf(Math.round(value));
+            return value;
         } catch (Exception e) {
-            log.debug("Erro ao converter percentual da célula: {}", e.getMessage());
+            log.debug("Erro ao converter percentual da célula: {}", e.getClass().getSimpleName());
             return BigDecimal.ZERO;
         }
     }
@@ -91,7 +97,7 @@ public class ImportacaoCellReader {
             value = value.replace(".", "").replace(",", ".");
             return (int) Math.round(Double.parseDouble(value));
         } catch (Exception e) {
-            log.debug("Erro ao converter inteiro da célula: {}", e.getMessage());
+            log.debug("Erro ao converter inteiro da célula: {}", e.getClass().getSimpleName());
             return 0;
         }
     }
@@ -123,7 +129,7 @@ public class ImportacaoCellReader {
 
             return LocalDate.parse(value);
         } catch (Exception e) {
-            log.debug("Erro ao converter data da célula: {}", e.getMessage());
+            log.debug("Erro ao converter data da célula: {}", e.getClass().getSimpleName());
             return null;
         }
     }

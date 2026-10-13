@@ -34,6 +34,7 @@ public class ImportacaoPlanilhaService {
     private final ImportacaoLinhaMapper linhaMapper;
     private final ImportacaoValidator validator;
     private final ImportacaoParcelaFactory parcelaFactory;
+    private final tools.jackson.databind.ObjectMapper json;
 
     @Transactional
     public ImportacaoResultado importar(Long perfilId, InputStream file) throws Exception {
@@ -89,6 +90,7 @@ public class ImportacaoPlanilhaService {
                         continue;
                     }
 
+                    List<ImportacaoParcelaFactory.DetalheBackup> detalhes = lerDetalhes(row, dto);
                     Cliente cliente = obterOuCriarCliente(
                             perfilId,
                             dto.nomeCliente(),
@@ -119,7 +121,9 @@ public class ImportacaoPlanilhaService {
                     Emprestimo emprestimo = criarEmprestimo(perfilId, cliente, dto);
                     Emprestimo emprestimoSalvo = emprestimoRepository.save(emprestimo);
 
-                    List<Parcelas> parcelas = parcelaFactory.gerar(emprestimoSalvo, dto.parcelasPagas());
+                    List<Parcelas> parcelas = detalhes == null
+                            ? parcelaFactory.gerar(emprestimoSalvo, dto.parcelasPagas())
+                            : parcelaFactory.restaurar(emprestimoSalvo, detalhes);
 
                     for (Parcelas parcela : parcelas) {
                         parcela.setPerfil(emprestimoSalvo.getPerfil());
@@ -127,20 +131,19 @@ public class ImportacaoPlanilhaService {
                     }
 
                     parcelaRepository.saveAll(parcelas);
+                    emprestimoSalvo.setParcelas(parcelas);
 
                     linhasImportadas++;
 
                 } catch (Exception e) {
+                    // Uma falha de persistência invalida a transação inteira; nunca informar sucesso parcial.
+                    if (e instanceof org.springframework.dao.DataAccessException) throw e;
                     linhasIgnoradas++;
-                    String motivo = "Erro inesperado: " + e.getMessage();
+                    String motivo = e instanceof IllegalArgumentException
+                            ? "Linha inválida: " + e.getMessage() : "Não foi possível importar esta linha.";
                     erros.add(new ErroImportacao(row.getRowNum() + 1, motivo));
 
-                    log.error(
-                            "Erro inesperado na linha {} | motivo='{}'",
-                            row.getRowNum() + 1,
-                            e.getMessage(),
-                            e
-                    );
+                    log.error("Falha na linha {}: {}", row.getRowNum() + 1, e.getClass().getSimpleName());
                 }
             }
         }
@@ -249,5 +252,34 @@ public class ImportacaoPlanilhaService {
                 .replaceAll("\\p{M}", "")
                 .trim()
                 .toUpperCase();
+    }
+
+    private List<ImportacaoParcelaFactory.DetalheBackup> lerDetalhes(Row row, LinhaImportacaoDTO dto) {
+        Cell cell = row.getCell(19);
+        if (cell == null || cell.getCellType() == CellType.BLANK) {
+            var recebidoIdentificado = dto.valorParcela().multiply(java.math.BigDecimal.valueOf(dto.parcelasPagas()));
+            if (dto.valorRecebido() != null && recebidoIdentificado.compareTo(dto.valorRecebido()) != 0) {
+                throw new IllegalArgumentException("Backup antigo não identifica a distribuição dos pagamentos parciais. Exporte novamente com os detalhes das parcelas.");
+            }
+            return null;
+        }
+        var detalhes = json.readValue(cell.getStringCellValue(),
+                new tools.jackson.core.type.TypeReference<List<ImportacaoParcelaFactory.DetalheBackup>>() {});
+        if (detalhes.size() != dto.totalParcelas()) throw new IllegalArgumentException("Quantidade de detalhes das parcelas inválida.");
+        var numeros = new java.util.HashSet<Integer>();
+        for (var d : detalhes) {
+            if (!numeros.add(d.numero()) || d.numero() < 1 || d.numero() > dto.totalParcelas()
+                    || d.valor() == null || d.valor().signum() <= 0 || d.pago() == null
+                    || d.pago().signum() < 0 || d.pago().compareTo(d.valor()) > 0 || d.vencimento() == null) {
+                throw new IllegalArgumentException("Detalhes das parcelas inválidos.");
+            }
+        }
+        var total = detalhes.stream().map(ImportacaoParcelaFactory.DetalheBackup::valor).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        var recebido = detalhes.stream().map(ImportacaoParcelaFactory.DetalheBackup::pago).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (total.compareTo(dto.valorTotalEmprestimos()) != 0 || recebido.compareTo(dto.valorRecebido()) != 0
+                || total.subtract(recebido).compareTo(dto.valorAReceber()) != 0) {
+            throw new IllegalArgumentException("Totais do backup não correspondem às parcelas.");
+        }
+        return detalhes;
     }
 }

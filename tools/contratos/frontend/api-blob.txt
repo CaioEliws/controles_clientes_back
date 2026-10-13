@@ -1,0 +1,12 @@
+async function downloadBlob(endpoint: string): Promise<{ blob: Blob; nomeArquivo: string }> {
+  const response = await fetch(`${API_URL}${endpoint}`, { method: "GET", headers: buildHeaders() });
+  if (!response.ok) {
+    const data: unknown = await response.json().catch(() => null);
+    const error = data as { message?: string; error?: string } | null;
+    throw new Error(error?.message ?? error?.error ?? "Não foi possível baixar o contrato.");
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+  const nomeArquivo = filename?.replace(/[^a-zA-Z0-9._-]/g, "-") || "contrato.docx";
+  return { blob: await response.blob(), nomeArquivo };
+}

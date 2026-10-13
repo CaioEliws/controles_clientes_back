@@ -14,6 +14,20 @@ import java.util.List;
 
 @Component
 public class ImportacaoParcelaFactory {
+    public record DetalheBackup(int numero, BigDecimal valor, BigDecimal pago,
+            LocalDate vencimento, LocalDate pagamento) {}
+
+    public List<Parcelas> restaurar(Emprestimo emp, List<DetalheBackup> detalhes) {
+        return detalhes.stream().sorted(java.util.Comparator.comparingInt(DetalheBackup::numero)).map(d -> {
+            var p = new Parcelas();
+            p.setNumeroParcela(d.numero()); p.setValorParcela(d.valor()); p.setValorPago(d.pago());
+            p.setDataVencimento(d.vencimento()); p.setDataPagamento(d.pagamento()); p.setEmprestimo(emp);
+            p.setStatus(d.pago().compareTo(d.valor()) == 0 ? ParcelaStatus.PAGO
+                    : d.vencimento().isBefore(LocalDate.now()) ? ParcelaStatus.ATRASADO
+                    : d.pago().signum() > 0 ? ParcelaStatus.PARCIAL : ParcelaStatus.PENDENTE);
+            return p;
+        }).toList();
+    }
 
     public List<Parcelas> gerar(Emprestimo emp, Integer pagas) {
         List<Parcelas> list = new ArrayList<>();
@@ -44,7 +58,9 @@ public class ImportacaoParcelaFactory {
             }
 
             list.add(p);
-            vencimento = proximoVencimento(vencimento, freq);
+            vencimento = freq == FrequenciaPagamento.MENSAL
+                    ? emp.getInicioPagamento().plusMonths(i)
+                    : proximoVencimento(vencimento, freq);
         }
 
         return list;

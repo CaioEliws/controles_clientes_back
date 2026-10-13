@@ -19,6 +19,7 @@ import java.util.List;
 public class ExportService {
 
     private final EmprestimoRepositorio emprestimoRepositorio;
+    private final tools.jackson.databind.ObjectMapper json;
 
     public byte[] exportarExcel(Long perfilId) throws Exception {
         List<Emprestimo> emprestimos = emprestimoRepositorio.findAllByPerfilId(perfilId);
@@ -33,6 +34,7 @@ public class ExportService {
                     "Cliente",
                     "Indicação",
                     "Forma Pgto",
+                    "Contrato",
                     "Pagamento",
                     "Valor empréstimo",
                     "Qtde parcelas",
@@ -46,7 +48,8 @@ public class ExportService {
                     "Tx juros",
                     "Inicio pgto",
                     "Final pgto",
-                    "Situação do empréstimo"
+                    "Situação do empréstimo",
+                    "Detalhes das parcelas"
             };
 
             Row headerRow = sheet.createRow(0);
@@ -104,38 +107,46 @@ public class ExportService {
                 r.createCell(1).setCellValue(cliente != null ? safeStr(cliente.getNome()) : "");
                 r.createCell(2).setCellValue(cliente != null ? safeStr(cliente.getNomeIndicador()) : "");
                 r.createCell(3).setCellValue(e.getFormaPagamento() != null ? e.getFormaPagamento().name() : "");
-                r.createCell(4).setCellValue(
+                r.createCell(4).setCellValue(e.getTipoContrato() != null ? e.getTipoContrato().name() : "FISICO");
+                r.createCell(5).setCellValue(
                         e.getFrequenciaPagamento() != null
                                 ? toLabelFrequencia(e.getFrequenciaPagamento())
                                 : "Mensal"
                 );
 
-                setMoney(r, 5, safeBd(e.getValorEmprestado()), moneyStyle);
-                r.createCell(6).setCellValue(totalParcelas);
-                r.createCell(7).setCellValue((double) pagas);
-                r.createCell(8).setCellValue((double) aVencer);
-                setMoney(r, 9, valorAReceber, moneyStyle);
-                setMoney(r, 10, valorRecebido, moneyStyle);
+                setMoney(r, 6, safeBd(e.getValorEmprestado()), moneyStyle);
+                r.createCell(7).setCellValue(totalParcelas);
+                r.createCell(8).setCellValue((double) pagas);
+                r.createCell(9).setCellValue((double) aVencer);
+                setMoney(r, 10, valorAReceber, moneyStyle);
+                setMoney(r, 11, valorRecebido, moneyStyle);
 
                 BigDecimal taxa = safeBd(e.getTaxaDeJuros());
                 double taxaPercentual = taxa.divide(BigDecimal.valueOf(100)).doubleValue();
 
-                Cell jurosCell = r.createCell(11);
+                Cell jurosCell = r.createCell(12);
                 jurosCell.setCellValue(taxaPercentual);
                 jurosCell.setCellStyle(percentStyle);
 
-                setMoney(r, 12, safeBd(e.getValorTotalEmprestimo()), moneyStyle);
-                setMoney(r, 13, safeBd(e.getValorParcela()), moneyStyle);
+                setMoney(r, 13, safeBd(e.getValorTotalEmprestimo()), moneyStyle);
+                setMoney(r, 14, safeBd(e.getValorParcela()), moneyStyle);
 
-                Cell txCell = r.createCell(14);
+                Cell txCell = r.createCell(15);
                 txCell.setCellValue(taxaPercentual);
                 txCell.setCellStyle(percentStyle);
 
-                setDate(r, 15, e.getInicioPagamento(), dateStyle);
-                setDate(r, 16, e.getFinalPagamento(), dateStyle);
-                r.createCell(17).setCellValue(
+                setDate(r, 16, e.getInicioPagamento(), dateStyle);
+                setDate(r, 17, e.getFinalPagamento(), dateStyle);
+                r.createCell(18).setCellValue(
                         e.getEmprestimoStatus() != null ? e.getEmprestimoStatus().name() : ""
                 );
+                if (parcelas != null) {
+                    r.createCell(19).setCellValue(json.writeValueAsString(parcelas.stream()
+                            .sorted(Comparator.comparing(Parcelas::getNumeroParcela))
+                            .map(p -> new com.caio.controle_clientes.services.importService.ImportacaoParcelaFactory.DetalheBackup(
+                                    p.getNumeroParcela(), p.getValorParcela(), safeBd(p.getValorPago()),
+                                    p.getDataVencimento(), p.getDataPagamento())).toList()));
+                }
             }
 
             for (int i = 0; i < headers.length; i++) {

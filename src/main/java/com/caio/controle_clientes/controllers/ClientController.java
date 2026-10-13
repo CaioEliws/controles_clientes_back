@@ -1,6 +1,8 @@
 package com.caio.controle_clientes.controllers;
 
 import com.caio.controle_clientes.dto.cliente.ClienteCreateDTO;
+import com.caio.controle_clientes.dto.cliente.AtualizarClienteDadosDTO;
+import com.caio.controle_clientes.dto.cliente.ClienteDetalhadoDTO;
 import com.caio.controle_clientes.dto.cliente.UpdateEnderecoDTO;
 import com.caio.controle_clientes.dto.cliente.UpdateNomeClienteDTO;
 import com.caio.controle_clientes.models.Cliente;
@@ -31,16 +33,26 @@ public class ClientController {
             throw new IllegalArgumentException("Perfil ativo não informado.");
         }
 
-        clienteService.criarCliente(
-                perfilId,
-                dto.nome(),
-                dto.nomeIndicador(),
-                dto.enderecoRua(),
-                dto.enderecoBairro(),
-                dto.enderecoNumero()
-        );
+        clienteService.criarCliente(perfilId, dto);
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ClienteDetalhadoDTO> detalhar(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(clienteService.buscarDetalhado(perfilId, id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ClienteDetalhadoDTO> atualizarDados(
+            @RequestHeader("X-Perfil-Id") Long perfilId,
+            @PathVariable Long id,
+            @Valid @RequestBody AtualizarClienteDadosDTO dto
+    ) {
+        return ResponseEntity.ok(clienteService.atualizarDados(perfilId, id, dto));
     }
 
     @DeleteMapping("/{id}")
@@ -79,9 +91,9 @@ public class ClientController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Cliente>> listarClientes(
+    public ResponseEntity<List<ClienteDetalhadoDTO>> listarClientes(
             @RequestHeader("X-Perfil-Id") Long perfilId
     ) {
-        return ResponseEntity.ok(clienteService.listarTodos(perfilId));
+        return ResponseEntity.ok(clienteService.listarDetalhadosComContagem(perfilId));
     }
 }
